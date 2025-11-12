@@ -1125,9 +1125,7 @@ def main():
         results = []
         
         # Get spending variables that exist in the data AND are in the TC001 balance set
-        # These items are selected to balance with TC001 (Total Current Consumption)
-        # Maximum level: 4 (as detailed as possible without going beyond Level 4)
-        # Parent totals are excluded to avoid double-counting
+        # Check ITEMS_FOR_TC001_BALANCE directly (not filtered through ALL_SPENDING_VARS)
         # Handle _C and _D versions: check if base variable or _C/_D versions exist
         def variable_exists(df, var):
             """Check if variable exists in any form (base, _C, or _D)"""
@@ -1135,17 +1133,13 @@ def main():
                    (var + '_C') in df.columns or 
                    (var + '_D') in df.columns)
         
+        # Check all items in ITEMS_FOR_TC001_BALANCE directly
         available_spending_vars = [
-            var for var in ALL_SPENDING_VARS 
-            if variable_exists(filtered_df, var) and var in ITEMS_FOR_TC001_BALANCE
+            var for var in ITEMS_FOR_TC001_BALANCE
+            if variable_exists(filtered_df, var)
         ]
         
-        # Also include TC001 and TE001 if they exist in the data (even if not in ALL_SPENDING_VARS)
-        for var in ["TC001", "TE001"]:
-            if variable_exists(filtered_df, var) and var not in available_spending_vars:
-                available_spending_vars.append(var)
-        
-        # Exclude parent totals to avoid double-counting
+        # Exclude parent totals to avoid double-counting (should be empty set, but keeping for safety)
         available_spending_vars = [
             var for var in available_spending_vars 
             if var not in PARENT_TOTALS_TO_EXCLUDE
