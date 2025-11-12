@@ -569,54 +569,105 @@ for category, vars_list in SPENDING_CATEGORIES.items():
     ALL_SPENDING_VARS.extend(vars_list)
 ALL_SPENDING_VARS = sorted(set(ALL_SPENDING_VARS))
 
-# Define Level 3 items that should be processed (plus TC001 and TE001)
-# Only these items will be processed - Level 4, 5, 6, 7, 8, 9 items are excluded
-LEVEL_3_ITEMS = {
-    "FD003",   # Food purchased from stores
-    "FD990",   # Food purchased from restaurants
-    "SH002",   # Principal accommodation
-    "SH040",   # Other accommodation
-    "CS030",   # Communications
-    "HO002",   # Domestic and other custodial services (excluding child care)
-    "HO003",   # Pet expenses
-    "HO010",   # Household cleaning supplies and equipment
-    "HO014",   # Paper, plastic and foil supplies
-    "HO018",   # Garden supplies and services
-    "HO022",   # Other household supplies
-    "CC001",   # Child care
-    "HF002",   # Household furnishings
-    "HE001",   # Household equipment
-    "HE017",   # Maintenance, rental, repairs and services related to household furnishings and equipment
-    "HE020",   # Services related to household furnishings and equipment
-    "CL029",   # Women's and girls' wear (14 years and over)
-    "CL026",   # Men's and boys' wear (14 years and over)
-    "CL023",   # Children's wear (under 14 years)
-    "CL990",   # Accessories, watches, jewellery and athletic footwear
-    "CL017",   # Clothing material, yarn, thread and other notions
-    "CL016",   # Clothing services
-    "TR002",   # Private transportation
-    "TR070",   # Public transportation
-    "HC002",   # Direct costs to household
-    "HC022",   # Private health insurance plan premiums
-    "PC002",   # Personal care products
-    "PC020",   # Personal care services
-    "RE002",   # Recreational equipment and related services
-    "RE040",   # Home entertainment equipment and services
-    "RE060",   # Recreational services
-    "RV001",   # Recreational vehicles and associated services
-    "ED003",   # Tuition fees
-    "ED030",   # Textbooks and school supplies
-    "RO002",   # Newspapers
-    "RO003",   # Magazines and periodicals
-    "RO004",   # Books and E-Books (excluding school books)
-    "RO005",   # Maps, sheet music and other printed matter
-    "RO010",   # Services related to reading materials (e.g. photocopying, library fees)
-    "TA990",   # Tobacco products, smokers' supplies and cannabis for non-medical use
-    "TA005",   # Alcoholic beverages
-    "ME039",   # Financial services
-    "ME040",   # Other miscellaneous goods and services
+# Items to include for TC001 balance (maximum Level 4, as detailed as possible)
+# These items are selected to ensure the sum balances with TC001 (Total Current Consumption)
+# Strategy: Include Level 4 items where available, otherwise Level 3, otherwise Level 2
+# Parent totals are excluded to avoid double-counting
+ITEMS_FOR_TC001_BALANCE = {
+    # Level 4 items (most detailed, where available)
+    "CL014",   # Clothing services (Level 4)
+    "CL015",   # Clothing services (Level 4)
+    "FD100",   # Bakery products (Level 4)
+    "FD200",   # Cereal grains and cereal products (Level 4)
+    "FD300",   # Fruit, fruit preparations and nuts (Level 4)
+    "FD400",   # Vegetables and vegetable preparations (Level 4)
+    "FD500",   # Dairy products and eggs (Level 4)
+    "FD600",   # Meat (Level 4)
+    "FD700",   # Fish and seafood (Level 4)
+    "FD800",   # Non-alcoholic beverages and other food products (Level 4)
+    "FD991",   # Restaurant meals (Level 4)
+    "FD995",   # Restaurant snacks and beverages (Level 4)
+    "HC025",   # Accident or disability insurance premiums (Level 4)
+    "HC061",   # Private health and dental plan premiums (Level 4)
+    "HO004",   # Pet food (Level 4)
+    "HO005",   # Purchase of pets and pet-related goods (Level 4)
+    "HO006",   # Veterinarian and other services (Level 4)
+    "RE006",   # Video game systems and accessories (Level 4)
+    "RE007",   # Art and craft materials (Level 4)
+    "RE010",   # Computer equipment and supplies (Level 4)
+    "RE016",   # Photographic goods and services (Level 4)
+    "RE022",   # Collectors' items (Level 4)
+    "RE032",   # Other recreational equipment (Level 4)
+    "RE041",   # Home entertainment equipment (Level 4)
+    "RE052",   # Home entertainment services (Level 4)
+    "RE061",   # Entertainment (Level 4)
+    "RE074",   # Package trips (Level 4)
+    "RE090",   # Use of recreational facilities and fees (Level 4)
+    "RE124",   # Sports, athletic and recreational equipment (Level 4)
+    "RE140",   # Other recreational services (Level 4)
+    "RE990",   # Outdoor play equipment and children's toys (Level 4)
+    "SH003",   # Rented living quarters (Level 4)
+    "SH010",   # Owned living quarters (Level 4)
+    "SH030",   # Water, fuel and electricity for principal accommodation (Level 4)
+    "SH041",   # Owned secondary residences (Level 4)
+    "SH047",   # Other owned properties (Level 4)
+    "SH050",   # Accommodation away from home (Level 4)
+    "TA006",   # Alcoholic beverages served on licensed premises (Level 4)
+    "TA007",   # Alcoholic beverages purchased from stores (Level 4)
+    "TA008",   # Self-made alcoholic beverages (Level 4)
+    "TR003",   # Private use automobiles, vans and trucks (Level 4)
+    "TR020",   # Rented automobiles, vans and trucks (Level 4)
+    "TR030",   # Automobile, van and truck operations (Level 4)
+    
+    # Level 3 items (where no Level 4 children exist)
+    "CL016",   # Clothing services (Level 3)
+    "CL017",   # Clothing material, yarn, thread and other notions (Level 3)
+    "CL023",   # Children's wear (under 14 years) (Level 3)
+    "CL026",   # Men's and boys' wear (14 years and over) (Level 3)
+    "CL990",   # Accessories, watches, jewellery and athletic footwear (Level 3)
+    "ED003",   # Tuition fees (Level 3)
+    "ED030",   # Textbooks and school supplies (Level 3)
+    "HC022",   # Private health insurance plan premiums (Level 3)
+    "HF002",   # Household furnishings (Level 3)
+    "HO003",   # Pet expenses (Level 3)
+    "HO010",   # Household cleaning supplies and equipment (Level 3)
+    "HO014",   # Paper, plastic and foil supplies (Level 3)
+    "HO018",   # Garden supplies and services (Level 3)
+    "HO022",   # Other household supplies (Level 3)
+    "ME039",   # Financial services (Level 3)
+    "ME040",   # Other miscellaneous goods and services (Level 3)
+    "PC002",   # Personal care products (Level 3)
+    "PC020",   # Personal care services (Level 3)
+    "RE040",   # Home entertainment equipment and services (Level 3)
+    "RE060",   # Recreational services (Level 3)
+    "RO002",   # Newspapers (Level 3)
+    "RO003",   # Magazines and periodicals (Level 3)
+    "RO004",   # Books and E-Books (excluding school books) (Level 3)
+    "RO005",   # Maps, sheet music and other printed matter (Level 3)
+    "RO010",   # Services related to reading materials (Level 3)
+    "SH040",   # Other accommodation (Level 3)
+    "TA005",   # Alcoholic beverages (Level 3)
+    "TR070",   # Public transportation (Level 3)
+    
+    # Level 2 items (where no Level 3 children exist)
+    "GC001",   # Games of chance (Level 2)
+    
+    # Totals (always include)
     "TC001",   # Total Current Consumption
     "TE001"    # Total Expenditure
+}
+
+# Parent totals to exclude (these are sums of their children, avoid double-counting)
+PARENT_TOTALS_TO_EXCLUDE = {
+    "CL029",   # Women's and girls' wear (sum of CL014, CL015)
+    "FD003",   # Food purchased from stores (sum of FD100, FD200, FD300, FD400, FD500, FD600, FD700, FD800)
+    "FD990",   # Food purchased from restaurants (sum of FD991, FD995)
+    "HC002",   # Direct costs to household (sum of HC025, HC061)
+    "HO002",   # Domestic and other custodial services (sum of HO004, HO005, HO006)
+    "RE002",   # Recreational equipment and related services (sum of RE006, RE007, RE010, RE016, RE022, RE032, RE041, RE052, RE061, RE074, RE090, RE124, RE140, RE990)
+    "SH002",   # Principal accommodation (sum of SH003, SH010, SH030, SH041, SH047, SH050)
+    "TA990",   # Tobacco products, smokers' supplies and cannabis (sum of TA006, TA007, TA008)
+    "TR002"    # Private transportation (sum of TR003, TR020, TR030)
 }
 
 # Load hierarchy structure
@@ -1096,17 +1147,25 @@ def main():
         overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
         results = []
         
-        # Get spending variables that exist in the data AND are Level 3 items (plus TC001 and TE001)
-        # Filter to only include Level 3 items - exclude Level 4, 5, 6, 7, 8, 9 items
+        # Get spending variables that exist in the data AND are in the TC001 balance set
+        # These items are selected to balance with TC001 (Total Current Consumption)
+        # Maximum level: 4 (as detailed as possible without going beyond Level 4)
+        # Parent totals are excluded to avoid double-counting
         available_spending_vars = [
             var for var in ALL_SPENDING_VARS 
-            if var in filtered_df.columns and var in LEVEL_3_ITEMS
+            if var in filtered_df.columns and var in ITEMS_FOR_TC001_BALANCE
         ]
         
         # Also include TC001 and TE001 if they exist in the data (even if not in ALL_SPENDING_VARS)
         for var in ["TC001", "TE001"]:
             if var in filtered_df.columns and var not in available_spending_vars:
                 available_spending_vars.append(var)
+        
+        # Exclude parent totals to avoid double-counting
+        available_spending_vars = [
+            var for var in available_spending_vars 
+            if var not in PARENT_TOTALS_TO_EXCLUDE
+        ]
         
         if len(available_spending_vars) == 0:
             st.error("No spending variables found in the dataset.")
