@@ -569,6 +569,56 @@ for category, vars_list in SPENDING_CATEGORIES.items():
     ALL_SPENDING_VARS.extend(vars_list)
 ALL_SPENDING_VARS = sorted(set(ALL_SPENDING_VARS))
 
+# Define Level 3 items that should be processed (plus TC001 and TE001)
+# Only these items will be processed - Level 4, 5, 6, 7, 8, 9 items are excluded
+LEVEL_3_ITEMS = {
+    "FD003",   # Food purchased from stores
+    "FD990",   # Food purchased from restaurants
+    "SH002",   # Principal accommodation
+    "SH040",   # Other accommodation
+    "CS030",   # Communications
+    "HO002",   # Domestic and other custodial services (excluding child care)
+    "HO003",   # Pet expenses
+    "HO010",   # Household cleaning supplies and equipment
+    "HO014",   # Paper, plastic and foil supplies
+    "HO018",   # Garden supplies and services
+    "HO022",   # Other household supplies
+    "CC001",   # Child care
+    "HF002",   # Household furnishings
+    "HE001",   # Household equipment
+    "HE017",   # Maintenance, rental, repairs and services related to household furnishings and equipment
+    "HE020",   # Services related to household furnishings and equipment
+    "CL029",   # Women's and girls' wear (14 years and over)
+    "CL026",   # Men's and boys' wear (14 years and over)
+    "CL023",   # Children's wear (under 14 years)
+    "CL990",   # Accessories, watches, jewellery and athletic footwear
+    "CL017",   # Clothing material, yarn, thread and other notions
+    "CL016",   # Clothing services
+    "TR002",   # Private transportation
+    "TR070",   # Public transportation
+    "HC002",   # Direct costs to household
+    "HC022",   # Private health insurance plan premiums
+    "PC002",   # Personal care products
+    "PC020",   # Personal care services
+    "RE002",   # Recreational equipment and related services
+    "RE040",   # Home entertainment equipment and services
+    "RE060",   # Recreational services
+    "RV001",   # Recreational vehicles and associated services
+    "ED003",   # Tuition fees
+    "ED030",   # Textbooks and school supplies
+    "RO002",   # Newspapers
+    "RO003",   # Magazines and periodicals
+    "RO004",   # Books and E-Books (excluding school books)
+    "RO005",   # Maps, sheet music and other printed matter
+    "RO010",   # Services related to reading materials (e.g. photocopying, library fees)
+    "TA990",   # Tobacco products, smokers' supplies and cannabis for non-medical use
+    "TA005",   # Alcoholic beverages
+    "ME039",   # Financial services
+    "ME040",   # Other miscellaneous goods and services
+    "TC001",   # Total Current Consumption
+    "TE001"    # Total Expenditure
+}
+
 # Load hierarchy structure
 @st.cache_data
 def load_hierarchy():
@@ -1046,8 +1096,17 @@ def main():
         overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
         results = []
         
-        # Get spending variables that exist in the data
-        available_spending_vars = [var for var in ALL_SPENDING_VARS if var in filtered_df.columns]
+        # Get spending variables that exist in the data AND are Level 3 items (plus TC001 and TE001)
+        # Filter to only include Level 3 items - exclude Level 4, 5, 6, 7, 8, 9 items
+        available_spending_vars = [
+            var for var in ALL_SPENDING_VARS 
+            if var in filtered_df.columns and var in LEVEL_3_ITEMS
+        ]
+        
+        # Also include TC001 and TE001 if they exist in the data (even if not in ALL_SPENDING_VARS)
+        for var in ["TC001", "TE001"]:
+            if var in filtered_df.columns and var not in available_spending_vars:
+                available_spending_vars.append(var)
         
         if len(available_spending_vars) == 0:
             st.error("No spending variables found in the dataset.")
