@@ -616,7 +616,7 @@ def calculate_bootstrap_variance(df, var, weight_col='WeightD', bootstrap_cols=N
     
     return variance
 
-def filter_data(df, filters):
+def filter_data(df, filters, income_range=None):
     """Apply filters to the dataset"""
     filtered_df = df.copy()
     
@@ -627,6 +627,14 @@ def filter_data(df, filters):
                     filtered_df = filtered_df[filtered_df[var].isin(value)]
             else:
                 filtered_df = filtered_df[filtered_df[var] == value]
+    
+    # Apply income range filter if provided
+    if income_range is not None and 'HH_TotInc' in filtered_df.columns:
+        min_income, max_income = income_range
+        if min_income is not None:
+            filtered_df = filtered_df[filtered_df['HH_TotInc'] >= min_income]
+        if max_income is not None:
+            filtered_df = filtered_df[filtered_df['HH_TotInc'] <= max_income]
     
     return filtered_df
 
@@ -670,6 +678,7 @@ def main():
     
     # Get unique values for filter variables
     filters = {}
+    income_range = None  # Initialize income range
     
     # Create columns for filters: Left, Middle, Right
     col1, col2, col3 = st.columns(3)
@@ -791,6 +800,27 @@ def main():
             )
             if len(selected_inc) > 0:
                 filters['HH_MajIncSrc'] = selected_inc
+        
+        # Household Total Income Range Slider
+        if 'HH_TotInc' in df.columns:
+            st.markdown("---")
+            st.subheader("Household Total Income Range")
+            income_min = float(df['HH_TotInc'].min())
+            income_max = float(df['HH_TotInc'].max())
+            income_default_min = float(df['HH_TotInc'].quantile(0.25))
+            income_default_max = float(df['HH_TotInc'].quantile(0.75))
+            
+            income_range = st.slider(
+                "Total Household Income ($)",
+                min_value=int(income_min),
+                max_value=int(income_max),
+                value=(int(income_default_min), int(income_default_max)),
+                step=1000,
+                help="Select the minimum and maximum household income range. Drag the sliders to adjust."
+            )
+            st.info(f"Selected range: ${income_range[0]:,.0f} to ${income_range[1]:,.0f}")
+        else:
+            income_range = None
     
     # RIGHT COLUMN: Spouse, Children, Vehicles
     with col3:
@@ -855,9 +885,10 @@ def main():
     
     # Update session state with current filters for real-time updates
     st.session_state.filters = filters
+    st.session_state.income_range = income_range
     
     # Calculate and display matching records count in real-time
-    filtered_df = filter_data(df, filters)
+    filtered_df = filter_data(df, filters, income_range=st.session_state.income_range)
     filtered_count = len(filtered_df)
     
     # Display matching records count box
@@ -880,6 +911,9 @@ def main():
         if len(bootstrap_cols) == 0:
             st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
             return
+        
+        # Ensure we're using the filtered data with income range
+        filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
         
         st.info(f"Using {len(bootstrap_cols)} bootstrap weights for variance estimation.")
         
@@ -975,6 +1009,24 @@ def main():
         
         st.session_state.category_results = pd.DataFrame(category_results_list)
         
+        # Calculate average household income and current consumption
+        avg_household_income = calculate_weighted_mean(filtered_df, 'HH_TotInc')
+        avg_income_variance = calculate_bootstrap_variance(filtered_df, 'HH_TotInc', bootstrap_cols=bootstrap_cols)
+        avg_income_se = np.sqrt(avg_income_variance) if not np.isnan(avg_income_variance) else np.nan
+        
+        if 'TC001' in filtered_df.columns:
+            avg_current_consumption = calculate_weighted_mean(filtered_df, 'TC001')
+            avg_consumption_variance = calculate_bootstrap_variance(filtered_df, 'TC001', bootstrap_cols=bootstrap_cols)
+            avg_consumption_se = np.sqrt(avg_consumption_variance) if not np.isnan(avg_consumption_variance) else np.nan
+        else:
+            avg_current_consumption = np.nan
+            avg_consumption_se = np.nan
+        
+        st.session_state.avg_household_income = avg_household_income
+        st.session_state.avg_income_se = avg_income_se
+        st.session_state.avg_current_consumption = avg_current_consumption
+        st.session_state.avg_consumption_se = avg_consumption_se
+        
         overall_progress_bar.progress(1.0)
         overall_progress_bar.empty()
         overall_status_text.empty()
@@ -1035,6 +1087,26 @@ def main():
         setTimeout(alignNumericColumns, 500);
         </script>
         """, unsafe_allow_html=True)
+        
+        # Display summary statistics
+        if 'avg_household_income' in st.session_state:
+            st.subheader("📊 Summary Statistics")
+            summary_data = []
+            if not np.isnan(st.session_state.avg_household_income):
+                summary_data.append({
+                    'Metric': 'Average Household Income',
+                    'Value ($)': round(st.session_state.avg_household_income, 2),
+                    'Standard Error ($)': round(st.session_state.avg_income_se, 2) if not np.isnan(st.session_state.avg_income_se) else np.nan
+                })
+            if 'avg_current_consumption' in st.session_state and not np.isnan(st.session_state.avg_current_consumption):
+                summary_data.append({
+                    'Metric': 'Average Current Consumption',
+                    'Value ($)': round(st.session_state.avg_current_consumption, 2),
+                    'Standard Error ($)': round(st.session_state.avg_consumption_se, 2) if not np.isnan(st.session_state.avg_consumption_se) else np.nan
+                })
+            if summary_data:
+                summary_df = pd.DataFrame(summary_data)
+                st.dataframe(summary_df, use_container_width=True)
         
         # Display by broad spending category first
         if 'category_results' in st.session_state and st.session_state.category_results is not None:
@@ -1173,8 +1245,32 @@ def main():
                         
                         all_data.append([label, selected_display, options_str])
                 
+                # Add income range filter if applied
+                if st.session_state.get('income_range') is not None:
+                    income_range = st.session_state.income_range
+                    all_data.append(["Household Total Income Range:", f"${income_range[0]:,.0f} to ${income_range[1]:,.0f}"])
+                
                 all_data.append([""])
                 all_data.append(["Number of Records Matching Criteria:", st.session_state.get('filtered_count', 'N/A')])
+                
+                # Add summary statistics
+                if 'avg_household_income' in st.session_state:
+                    all_data.append([""])
+                    all_data.append(["Summary Statistics:"])
+                    all_data.append(["Metric", "Value ($)", "Standard Error ($)"])
+                    if not np.isnan(st.session_state.avg_household_income):
+                        all_data.append([
+                            "Average Household Income",
+                            round(st.session_state.avg_household_income, 2),
+                            round(st.session_state.avg_income_se, 2) if not np.isnan(st.session_state.avg_income_se) else ""
+                        ])
+                    if 'avg_current_consumption' in st.session_state and not np.isnan(st.session_state.avg_current_consumption):
+                        all_data.append([
+                            "Average Current Consumption",
+                            round(st.session_state.avg_current_consumption, 2),
+                            round(st.session_state.avg_consumption_se, 2) if not np.isnan(st.session_state.avg_consumption_se) else ""
+                        ])
+                
                 all_data.append([""])
                 all_data.append([""])
                 
@@ -1261,8 +1357,8 @@ def main():
                 cell_value = str(row[0].value) if row[0].value else ""
                 
                 # Format section headers
-                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Spending Category Breakdown", 
-                                                             "Individual Spending Code Breakdown", "TOTAL"])
+                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Summary Statistics:", "Spending Category Breakdown", 
+                                                             "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
                 if is_header:
                     for cell in row:
                         cell.font = Font(bold=True, size=11)
