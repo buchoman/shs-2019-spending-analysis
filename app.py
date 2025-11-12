@@ -750,7 +750,7 @@ def build_hierarchical_display(hierarchical_results, var_to_node):
     display_rows = []
     
     for item in hierarchical_results:
-        level = item['level']
+        level = int(item['level']) if item.get('level') is not None else 0
         indent = "  " * level  # 2 spaces per level
         var_code = item['var_code']
         description = item['description']
@@ -1376,7 +1376,7 @@ def main():
                 if hierarchical_results_export:
                     # Build hierarchical display with indentation
                     for item in hierarchical_results_export:
-                        level = item['level']
+                        level = int(item['level']) if item.get('level') is not None else 0
                         indent = "  " * level  # 2 spaces per level (matching Excel hierarchy)
                         var_code = item['var_code']
                         description = item['description']
