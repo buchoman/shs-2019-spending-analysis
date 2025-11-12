@@ -173,6 +173,16 @@ def format_value(var_name, value):
 PARENT_TOTALS = {
     "FD001",  # Food expenditures (parent of all FD variables)
     "FD003",  # Food purchased from stores (parent of store food items)
+    "FD990",  # Food purchased from restaurants (parent of FD991)
+    "FD991",  # Restaurant meals (parent of FD992-FD995)
+    "FD100",  # Bakery products (parent of FD101-FD108, FD112)
+    "FD200",  # Cereal grains and cereal products (parent of FD201-FD212)
+    "FD300",  # Fruit, fruit preparations and nuts (parent of FD301-FD316, FD330-FD382)
+    "FD400",  # Vegetables and vegetable preparations (parent of FD401-FD412, FD418, FD421, FD440-FD479)
+    "FD500",  # Dairy products and eggs (parent of FD501-FD505, FD520-FD525, FD540-FD541, FD550-FD555, FD570-FD572)
+    "FD600",  # Meat (parent of FD601-FD607, FD650-FD660)
+    "FD700",  # Fish and seafood (parent of FD701-FD706, FD720-FD724, FD730-FD732)
+    "FD800",  # Non-alcoholic beverages and other food products (parent of FD801-FD802, FD806, FD814-FD815, FD821, FD827-FD829, FD833-FD889)
     "CS030",  # Communications (parent of CS003, CS004, CS005, etc.)
     "HF001",  # Household furnishings and equipment (parent of HF002)
     "HE001",  # Household equipment (parent of HE002, HE010, etc.)
@@ -183,7 +193,9 @@ PARENT_TOTALS = {
     "RO001",  # Reading materials (parent of RO002, RO003, etc.)
     "RV001",  # Recreational vehicles (parent of RV010, RV020)
     "SH001",  # Shelter (parent of SH002, SH003, etc.)
+    "SH002",  # Shelter (another parent total)
     "TR001",  # Transportation (parent of TR002, TR003, etc.)
+    "TR002",  # Transportation (another parent total)
     "ME001",  # Miscellaneous expenditures (parent of ME039, ME040)
     "TA018",  # Tobacco products, alcoholic beverages and cannabis (parent of TA005, TA006, TA007, TA008, TA990)
     "TC001",  # Total current consumption (parent of all consumption)
@@ -199,23 +211,23 @@ SPENDING_CATEGORIES = {
     "Education": ["ED002", "ED003", "ED030"],
     "Personal Insurance": ["EP011"],
     "Food": [
-        # Excluded FD001 (parent total) and FD003 (parent of store food)
-        "FD100", "FD1001", "FD1002", "FD1003", "FD1004", "FD101", "FD102", "FD103",
-        "FD104", "FD105", "FD106", "FD107", "FD108", "FD112", "FD200", "FD201", "FD202", "FD203",
-        "FD204", "FD205", "FD206", "FD207", "FD208", "FD209", "FD212", "FD300", "FD301", "FD302",
+        # Excluded parent totals: FD001, FD003, FD990, FD991, FD100, FD200, FD300, FD400, FD500, FD600, FD700, FD800
+        "FD1001", "FD1002", "FD1003", "FD1004", "FD101", "FD102", "FD103",
+        "FD104", "FD105", "FD106", "FD107", "FD108", "FD112", "FD201", "FD202", "FD203",
+        "FD204", "FD205", "FD206", "FD207", "FD208", "FD209", "FD212", "FD301", "FD302",
         "FD303", "FD304", "FD305", "FD308", "FD309", "FD315", "FD316", "FD330", "FD331", "FD350",
-        "FD380", "FD381", "FD382", "FD400", "FD401", "FD402", "FD403", "FD404", "FD405", "FD406",
+        "FD380", "FD381", "FD382", "FD401", "FD402", "FD403", "FD404", "FD405", "FD406",
         "FD407", "FD408", "FD409", "FD410", "FD411", "FD412", "FD418", "FD421", "FD440", "FD441",
-        "FD442", "FD447", "FD470", "FD471", "FD478", "FD479", "FD500", "FD501", "FD502", "FD503",
+        "FD442", "FD447", "FD470", "FD471", "FD478", "FD479", "FD501", "FD502", "FD503",
         "FD504", "FD505", "FD520", "FD521", "FD522", "FD525", "FD540", "FD541", "FD550", "FD551",
-        "FD555", "FD570", "FD571", "FD572", "FD600", "FD601", "FD602", "FD603", "FD604", "FD607",
-        "FD650", "FD651", "FD660", "FD700", "FD701", "FD705", "FD706", "FD720", "FD721", "FD722",
-        "FD723", "FD724", "FD730", "FD731", "FD732", "FD800", "FD801", "FD802", "FD806", "FD814",
+        "FD555", "FD570", "FD571", "FD572", "FD601", "FD602", "FD603", "FD604", "FD607",
+        "FD650", "FD651", "FD660", "FD701", "FD705", "FD706", "FD720", "FD721", "FD722",
+        "FD723", "FD724", "FD730", "FD731", "FD732", "FD801", "FD802", "FD806", "FD814",
         "FD815", "FD821", "FD827", "FD828", "FD829", "FD833", "FD834", "FD835", "FD836", "FD837",
         "FD838", "FD839", "FD840", "FD841", "FD842", "FD843", "FD844", "FD845", "FD846", "FD847",
         "FD850", "FD851", "FD852", "FD853", "FD854", "FD855", "FD857", "FD870", "FD871", "FD872",
         "FD873", "FD874", "FD875", "FD879", "FD880", "FD881", "FD882", "FD883", "FD884", "FD885",
-        "FD889", "FD990", "FD991", "FD992", "FD993", "FD994", "FD995"
+        "FD889", "FD992", "FD993", "FD994", "FD995"  # Restaurant subcategories (excluded FD990, FD991)
     ],
     "Games of Chance": ["GC001"],
     "Health Care": ["HC002", "HC022", "HC025", "HC061"],  # Excluded HC001 (parent total)
@@ -775,8 +787,9 @@ def main():
             st.subheader("Household Total Income Range")
             income_min = float(df['HH_TotInc'].min())
             income_max = float(df['HH_TotInc'].max())
-            income_default_min = float(df['HH_TotInc'].quantile(0.25))
-            income_default_max = float(df['HH_TotInc'].quantile(0.75))
+            # Default to full range (no filtering by default)
+            income_default_min = income_min
+            income_default_max = income_max
             
             income_range = st.slider(
                 "Total Household Income ($)",
@@ -784,7 +797,7 @@ def main():
                 max_value=int(income_max),
                 value=(int(income_default_min), int(income_default_max)),
                 step=1000,
-                help="Select the minimum and maximum household income range. Drag the sliders to adjust."
+                help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
         else:
@@ -961,7 +974,13 @@ def main():
             overall_status_text.empty()
             return
         
-        # Calculate for each spending variable
+        # Pre-build category lookup dictionary for faster lookups
+        var_to_category = {}
+        for cat, vars_list in SPENDING_CATEGORIES.items():
+            for var in vars_list:
+                var_to_category[var] = cat
+        
+        # Calculate for each spending variable (optimized with vectorized operations where possible)
         progress_bar = st.progress(0)
         status_text = st.empty()
         total_vars = len(available_spending_vars)
@@ -973,12 +992,8 @@ def main():
             variance = calculate_bootstrap_variance(filtered_df, var, bootstrap_cols=bootstrap_cols)
             std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
             
-            # Find category
-            category = "Other"
-            for cat, vars_list in SPENDING_CATEGORIES.items():
-                if var in vars_list:
-                    category = cat
-                    break
+            # Find category (using pre-built lookup)
+            category = var_to_category.get(var, "Other")
             
             # Get spending description
             spending_desc = SPENDING_DESCRIPTIONS.get(var, "Spending description not available")
