@@ -1,0 +1,2743 @@
+{
+  "var_to_node": {
+    "TE001": {
+      "var_code": "TE001",
+      "level": 0,
+      "description": "TE001_C",
+      "parent": null,
+      "children": [
+        "TC001",
+        "TC001",
+        "TC001",
+        "TX010",
+        "EP011",
+        "MG001"
+      ]
+    },
+    "TC001": {
+      "var_code": "TC001",
+      "level": 1,
+      "description": "TC001_C",
+      "parent": "TE001",
+      "children": []
+    },
+    "FD001": {
+      "var_code": "FD001",
+      "level": 2,
+      "description": "FD001",
+      "parent": null,
+      "children": []
+    },
+    "FD003": {
+      "var_code": "FD003",
+      "level": 3,
+      "description": "FD003",
+      "parent": null,
+      "children": []
+    },
+    "FD100": {
+      "var_code": "FD100",
+      "level": 4,
+      "description": "FD100",
+      "parent": null,
+      "children": []
+    },
+    "FD101": {
+      "var_code": "FD101",
+      "level": 5,
+      "description": "FD101",
+      "parent": null,
+      "children": []
+    },
+    "FD102": {
+      "var_code": "FD102",
+      "level": 6,
+      "description": "FD102",
+      "parent": null,
+      "children": []
+    },
+    "FD103": {
+      "var_code": "FD103",
+      "level": 6,
+      "description": "FD103",
+      "parent": null,
+      "children": []
+    },
+    "FD104": {
+      "var_code": "FD104",
+      "level": 5,
+      "description": "FD104",
+      "parent": null,
+      "children": []
+    },
+    "FD105": {
+      "var_code": "FD105",
+      "level": 6,
+      "description": "FD105",
+      "parent": null,
+      "children": []
+    },
+    "FD106": {
+      "var_code": "FD106",
+      "level": 6,
+      "description": "FD106",
+      "parent": null,
+      "children": []
+    },
+    "FD107": {
+      "var_code": "FD107",
+      "level": 5,
+      "description": "FD107",
+      "parent": null,
+      "children": []
+    },
+    "FD108": {
+      "var_code": "FD108",
+      "level": 6,
+      "description": "FD108",
+      "parent": null,
+      "children": []
+    },
+    "FD112": {
+      "var_code": "FD112",
+      "level": 6,
+      "description": "FD112",
+      "parent": null,
+      "children": []
+    },
+    "FD200": {
+      "var_code": "FD200",
+      "level": 4,
+      "description": "FD200",
+      "parent": null,
+      "children": []
+    },
+    "FD201": {
+      "var_code": "FD201",
+      "level": 5,
+      "description": "FD201",
+      "parent": null,
+      "children": []
+    },
+    "FD202": {
+      "var_code": "FD202",
+      "level": 6,
+      "description": "FD202",
+      "parent": null,
+      "children": []
+    },
+    "FD203": {
+      "var_code": "FD203",
+      "level": 6,
+      "description": "FD203",
+      "parent": null,
+      "children": []
+    },
+    "FD204": {
+      "var_code": "FD204",
+      "level": 5,
+      "description": "FD204",
+      "parent": null,
+      "children": []
+    },
+    "FD205": {
+      "var_code": "FD205",
+      "level": 6,
+      "description": "FD205",
+      "parent": null,
+      "children": []
+    },
+    "FD206": {
+      "var_code": "FD206",
+      "level": 6,
+      "description": "FD206",
+      "parent": null,
+      "children": []
+    },
+    "FD207": {
+      "var_code": "FD207",
+      "level": 6,
+      "description": "FD207",
+      "parent": null,
+      "children": []
+    },
+    "FD208": {
+      "var_code": "FD208",
+      "level": 5,
+      "description": "FD208",
+      "parent": null,
+      "children": []
+    },
+    "FD209": {
+      "var_code": "FD209",
+      "level": 6,
+      "description": "FD209",
+      "parent": null,
+      "children": []
+    },
+    "FD212": {
+      "var_code": "FD212",
+      "level": 6,
+      "description": "FD212",
+      "parent": null,
+      "children": []
+    },
+    "FD300": {
+      "var_code": "FD300",
+      "level": 4,
+      "description": "FD300",
+      "parent": null,
+      "children": []
+    },
+    "FD301": {
+      "var_code": "FD301",
+      "level": 5,
+      "description": "FD301",
+      "parent": null,
+      "children": []
+    },
+    "FD302": {
+      "var_code": "FD302",
+      "level": 6,
+      "description": "FD302",
+      "parent": null,
+      "children": []
+    },
+    "FD303": {
+      "var_code": "FD303",
+      "level": 6,
+      "description": "FD303",
+      "parent": null,
+      "children": []
+    },
+    "FD304": {
+      "var_code": "FD304",
+      "level": 6,
+      "description": "FD304",
+      "parent": null,
+      "children": []
+    },
+    "FD305": {
+      "var_code": "FD305",
+      "level": 6,
+      "description": "FD305",
+      "parent": null,
+      "children": []
+    },
+    "FD308": {
+      "var_code": "FD308",
+      "level": 6,
+      "description": "FD308",
+      "parent": null,
+      "children": []
+    },
+    "FD309": {
+      "var_code": "FD309",
+      "level": 6,
+      "description": "FD309",
+      "parent": null,
+      "children": []
+    },
+    "FD315": {
+      "var_code": "FD315",
+      "level": 6,
+      "description": "FD315",
+      "parent": null,
+      "children": []
+    },
+    "FD316": {
+      "var_code": "FD316",
+      "level": 6,
+      "description": "FD316",
+      "parent": null,
+      "children": []
+    },
+    "FD330": {
+      "var_code": "FD330",
+      "level": 5,
+      "description": "FD330",
+      "parent": null,
+      "children": []
+    },
+    "FD331": {
+      "var_code": "FD331",
+      "level": 6,
+      "description": "FD331",
+      "parent": null,
+      "children": []
+    },
+    "FD350": {
+      "var_code": "FD350",
+      "level": 6,
+      "description": "FD350",
+      "parent": null,
+      "children": []
+    },
+    "FD380": {
+      "var_code": "FD380",
+      "level": 5,
+      "description": "FD380",
+      "parent": null,
+      "children": []
+    },
+    "FD381": {
+      "var_code": "FD381",
+      "level": 6,
+      "description": "FD381",
+      "parent": null,
+      "children": []
+    },
+    "FD382": {
+      "var_code": "FD382",
+      "level": 6,
+      "description": "FD382",
+      "parent": null,
+      "children": []
+    },
+    "FD400": {
+      "var_code": "FD400",
+      "level": 4,
+      "description": "FD400",
+      "parent": null,
+      "children": []
+    },
+    "FD401": {
+      "var_code": "FD401",
+      "level": 5,
+      "description": "FD401",
+      "parent": null,
+      "children": []
+    },
+    "FD402": {
+      "var_code": "FD402",
+      "level": 6,
+      "description": "FD402",
+      "parent": null,
+      "children": []
+    },
+    "FD403": {
+      "var_code": "FD403",
+      "level": 6,
+      "description": "FD403",
+      "parent": null,
+      "children": []
+    },
+    "FD404": {
+      "var_code": "FD404",
+      "level": 6,
+      "description": "FD404",
+      "parent": null,
+      "children": []
+    },
+    "FD405": {
+      "var_code": "FD405",
+      "level": 6,
+      "description": "FD405",
+      "parent": null,
+      "children": []
+    },
+    "FD406": {
+      "var_code": "FD406",
+      "level": 6,
+      "description": "FD406",
+      "parent": null,
+      "children": []
+    },
+    "FD407": {
+      "var_code": "FD407",
+      "level": 6,
+      "description": "FD407",
+      "parent": null,
+      "children": []
+    },
+    "FD408": {
+      "var_code": "FD408",
+      "level": 6,
+      "description": "FD408",
+      "parent": null,
+      "children": []
+    },
+    "FD409": {
+      "var_code": "FD409",
+      "level": 6,
+      "description": "FD409",
+      "parent": null,
+      "children": []
+    },
+    "FD410": {
+      "var_code": "FD410",
+      "level": 6,
+      "description": "FD410",
+      "parent": null,
+      "children": []
+    },
+    "FD411": {
+      "var_code": "FD411",
+      "level": 6,
+      "description": "FD411",
+      "parent": null,
+      "children": []
+    },
+    "FD418": {
+      "var_code": "FD418",
+      "level": 6,
+      "description": "FD418",
+      "parent": null,
+      "children": []
+    },
+    "FD412": {
+      "var_code": "FD412",
+      "level": 6,
+      "description": "FD412",
+      "parent": null,
+      "children": []
+    },
+    "FD440": {
+      "var_code": "FD440",
+      "level": 5,
+      "description": "FD440",
+      "parent": null,
+      "children": []
+    },
+    "FD441": {
+      "var_code": "FD441",
+      "level": 6,
+      "description": "FD441",
+      "parent": null,
+      "children": []
+    },
+    "FD442": {
+      "var_code": "FD442",
+      "level": 6,
+      "description": "FD442",
+      "parent": null,
+      "children": []
+    },
+    "FD447": {
+      "var_code": "FD447",
+      "level": 6,
+      "description": "FD447",
+      "parent": null,
+      "children": []
+    },
+    "FD470": {
+      "var_code": "FD470",
+      "level": 5,
+      "description": "FD470",
+      "parent": null,
+      "children": []
+    },
+    "FD471": {
+      "var_code": "FD471",
+      "level": 6,
+      "description": "FD471",
+      "parent": null,
+      "children": []
+    },
+    "FD478": {
+      "var_code": "FD478",
+      "level": 6,
+      "description": "FD478",
+      "parent": null,
+      "children": []
+    },
+    "FD479": {
+      "var_code": "FD479",
+      "level": 6,
+      "description": "FD479",
+      "parent": null,
+      "children": []
+    },
+    "FD500": {
+      "var_code": "FD500",
+      "level": 4,
+      "description": "FD500",
+      "parent": null,
+      "children": []
+    },
+    "FD501": {
+      "var_code": "FD501",
+      "level": 5,
+      "description": "FD501",
+      "parent": null,
+      "children": []
+    },
+    "FD502": {
+      "var_code": "FD502",
+      "level": 6,
+      "description": "FD502",
+      "parent": null,
+      "children": []
+    },
+    "FD503": {
+      "var_code": "FD503",
+      "level": 6,
+      "description": "FD503",
+      "parent": null,
+      "children": []
+    },
+    "FD504": {
+      "var_code": "FD504",
+      "level": 6,
+      "description": "FD504",
+      "parent": null,
+      "children": []
+    },
+    "FD505": {
+      "var_code": "FD505",
+      "level": 6,
+      "description": "FD505",
+      "parent": null,
+      "children": []
+    },
+    "FD520": {
+      "var_code": "FD520",
+      "level": 5,
+      "description": "FD520",
+      "parent": null,
+      "children": []
+    },
+    "FD521": {
+      "var_code": "FD521",
+      "level": 6,
+      "description": "FD521",
+      "parent": null,
+      "children": []
+    },
+    "FD522": {
+      "var_code": "FD522",
+      "level": 6,
+      "description": "FD522",
+      "parent": null,
+      "children": []
+    },
+    "FD525": {
+      "var_code": "FD525",
+      "level": 6,
+      "description": "FD525",
+      "parent": null,
+      "children": []
+    },
+    "FD540": {
+      "var_code": "FD540",
+      "level": 5,
+      "description": "FD540",
+      "parent": null,
+      "children": []
+    },
+    "FD541": {
+      "var_code": "FD541",
+      "level": 5,
+      "description": "FD541",
+      "parent": null,
+      "children": []
+    },
+    "FD550": {
+      "var_code": "FD550",
+      "level": 5,
+      "description": "FD550",
+      "parent": null,
+      "children": []
+    },
+    "FD551": {
+      "var_code": "FD551",
+      "level": 6,
+      "description": "FD551",
+      "parent": null,
+      "children": []
+    },
+    "FD555": {
+      "var_code": "FD555",
+      "level": 6,
+      "description": "FD555",
+      "parent": null,
+      "children": []
+    },
+    "FD570": {
+      "var_code": "FD570",
+      "level": 5,
+      "description": "FD570",
+      "parent": null,
+      "children": []
+    },
+    "FD571": {
+      "var_code": "FD571",
+      "level": 6,
+      "description": "FD571",
+      "parent": null,
+      "children": []
+    },
+    "FD572": {
+      "var_code": "FD572",
+      "level": 6,
+      "description": "FD572",
+      "parent": null,
+      "children": []
+    },
+    "FD600": {
+      "var_code": "FD600",
+      "level": 4,
+      "description": "FD600",
+      "parent": null,
+      "children": []
+    },
+    "FD601": {
+      "var_code": "FD601",
+      "level": 5,
+      "description": "FD601",
+      "parent": null,
+      "children": []
+    },
+    "FD602": {
+      "var_code": "FD602",
+      "level": 6,
+      "description": "FD602",
+      "parent": null,
+      "children": []
+    },
+    "FD603": {
+      "var_code": "FD603",
+      "level": 6,
+      "description": "FD603",
+      "parent": null,
+      "children": []
+    },
+    "FD604": {
+      "var_code": "FD604",
+      "level": 6,
+      "description": "FD604",
+      "parent": null,
+      "children": []
+    },
+    "FD607": {
+      "var_code": "FD607",
+      "level": 6,
+      "description": "FD607",
+      "parent": null,
+      "children": []
+    },
+    "FD650": {
+      "var_code": "FD650",
+      "level": 5,
+      "description": "FD650",
+      "parent": null,
+      "children": []
+    },
+    "FD651": {
+      "var_code": "FD651",
+      "level": 6,
+      "description": "FD651",
+      "parent": null,
+      "children": []
+    },
+    "FD660": {
+      "var_code": "FD660",
+      "level": 6,
+      "description": "FD660",
+      "parent": null,
+      "children": []
+    },
+    "FD700": {
+      "var_code": "FD700",
+      "level": 4,
+      "description": "FD700",
+      "parent": null,
+      "children": []
+    },
+    "FD701": {
+      "var_code": "FD701",
+      "level": 5,
+      "description": "FD701",
+      "parent": null,
+      "children": []
+    },
+    "FD1003": {
+      "var_code": "FD1003",
+      "level": 6,
+      "description": "FD1003",
+      "parent": null,
+      "children": []
+    },
+    "FD705": {
+      "var_code": "FD705",
+      "level": 6,
+      "description": "FD705",
+      "parent": null,
+      "children": []
+    },
+    "FD706": {
+      "var_code": "FD706",
+      "level": 6,
+      "description": "FD706",
+      "parent": null,
+      "children": []
+    },
+    "FD720": {
+      "var_code": "FD720",
+      "level": 5,
+      "description": "FD720",
+      "parent": null,
+      "children": []
+    },
+    "FD721": {
+      "var_code": "FD721",
+      "level": 6,
+      "description": "FD721",
+      "parent": null,
+      "children": []
+    },
+    "FD722": {
+      "var_code": "FD722",
+      "level": 6,
+      "description": "FD722",
+      "parent": null,
+      "children": []
+    },
+    "FD724": {
+      "var_code": "FD724",
+      "level": 6,
+      "description": "FD724",
+      "parent": null,
+      "children": []
+    },
+    "FD723": {
+      "var_code": "FD723",
+      "level": 6,
+      "description": "FD723",
+      "parent": null,
+      "children": []
+    },
+    "FD730": {
+      "var_code": "FD730",
+      "level": 5,
+      "description": "FD730",
+      "parent": null,
+      "children": []
+    },
+    "FD731": {
+      "var_code": "FD731",
+      "level": 6,
+      "description": "FD731",
+      "parent": null,
+      "children": []
+    },
+    "FD732": {
+      "var_code": "FD732",
+      "level": 6,
+      "description": "FD732",
+      "parent": null,
+      "children": []
+    },
+    "FD800": {
+      "var_code": "FD800",
+      "level": 4,
+      "description": "FD800",
+      "parent": null,
+      "children": []
+    },
+    "FD801": {
+      "var_code": "FD801",
+      "level": 5,
+      "description": "FD801",
+      "parent": null,
+      "children": []
+    },
+    "FD802": {
+      "var_code": "FD802",
+      "level": 6,
+      "description": "FD802",
+      "parent": null,
+      "children": []
+    },
+    "FD806": {
+      "var_code": "FD806",
+      "level": 6,
+      "description": "FD806",
+      "parent": null,
+      "children": []
+    },
+    "FD814": {
+      "var_code": "FD814",
+      "level": 5,
+      "description": "FD814",
+      "parent": null,
+      "children": []
+    },
+    "FD815": {
+      "var_code": "FD815",
+      "level": 6,
+      "description": "FD815",
+      "parent": null,
+      "children": []
+    },
+    "FD821": {
+      "var_code": "FD821",
+      "level": 6,
+      "description": "FD821",
+      "parent": null,
+      "children": []
+    },
+    "FD827": {
+      "var_code": "FD827",
+      "level": 5,
+      "description": "FD827",
+      "parent": null,
+      "children": []
+    },
+    "FD828": {
+      "var_code": "FD828",
+      "level": 6,
+      "description": "FD828",
+      "parent": null,
+      "children": []
+    },
+    "FD829": {
+      "var_code": "FD829",
+      "level": 6,
+      "description": "FD829",
+      "parent": null,
+      "children": []
+    },
+    "FD1004": {
+      "var_code": "FD1004",
+      "level": 6,
+      "description": "FD1004",
+      "parent": null,
+      "children": []
+    },
+    "FD833": {
+      "var_code": "FD833",
+      "level": 5,
+      "description": "FD833",
+      "parent": null,
+      "children": []
+    },
+    "FD834": {
+      "var_code": "FD834",
+      "level": 6,
+      "description": "FD834",
+      "parent": null,
+      "children": []
+    },
+    "FD835": {
+      "var_code": "FD835",
+      "level": 6,
+      "description": "FD835",
+      "parent": null,
+      "children": []
+    },
+    "FD836": {
+      "var_code": "FD836",
+      "level": 6,
+      "description": "FD836",
+      "parent": null,
+      "children": []
+    },
+    "FD837": {
+      "var_code": "FD837",
+      "level": 6,
+      "description": "FD837",
+      "parent": null,
+      "children": []
+    },
+    "FD879": {
+      "var_code": "FD879",
+      "level": 6,
+      "description": "FD879",
+      "parent": null,
+      "children": []
+    },
+    "FD838": {
+      "var_code": "FD838",
+      "level": 6,
+      "description": "FD838",
+      "parent": null,
+      "children": []
+    },
+    "FD840": {
+      "var_code": "FD840",
+      "level": 6,
+      "description": "FD840",
+      "parent": null,
+      "children": []
+    },
+    "FD421": {
+      "var_code": "FD421",
+      "level": 6,
+      "description": "FD421",
+      "parent": null,
+      "children": []
+    },
+    "FD839": {
+      "var_code": "FD839",
+      "level": 6,
+      "description": "FD839",
+      "parent": null,
+      "children": []
+    },
+    "FD841": {
+      "var_code": "FD841",
+      "level": 5,
+      "description": "FD841",
+      "parent": null,
+      "children": []
+    },
+    "FD842": {
+      "var_code": "FD842",
+      "level": 6,
+      "description": "FD842",
+      "parent": null,
+      "children": []
+    },
+    "FD843": {
+      "var_code": "FD843",
+      "level": 6,
+      "description": "FD843",
+      "parent": null,
+      "children": []
+    },
+    "FD844": {
+      "var_code": "FD844",
+      "level": 6,
+      "description": "FD844",
+      "parent": null,
+      "children": []
+    },
+    "FD889": {
+      "var_code": "FD889",
+      "level": 6,
+      "description": "FD889",
+      "parent": null,
+      "children": []
+    },
+    "FD845": {
+      "var_code": "FD845",
+      "level": 5,
+      "description": "FD845",
+      "parent": null,
+      "children": []
+    },
+    "FD846": {
+      "var_code": "FD846",
+      "level": 6,
+      "description": "FD846",
+      "parent": null,
+      "children": []
+    },
+    "FD847": {
+      "var_code": "FD847",
+      "level": 6,
+      "description": "FD847",
+      "parent": null,
+      "children": []
+    },
+    "FD857": {
+      "var_code": "FD857",
+      "level": 6,
+      "description": "FD857",
+      "parent": null,
+      "children": []
+    },
+    "FD1001": {
+      "var_code": "FD1001",
+      "level": 6,
+      "description": "FD1001",
+      "parent": null,
+      "children": []
+    },
+    "FD850": {
+      "var_code": "FD850",
+      "level": 5,
+      "description": "FD850",
+      "parent": null,
+      "children": []
+    },
+    "FD851": {
+      "var_code": "FD851",
+      "level": 6,
+      "description": "FD851",
+      "parent": null,
+      "children": []
+    },
+    "FD852": {
+      "var_code": "FD852",
+      "level": 6,
+      "description": "FD852",
+      "parent": null,
+      "children": []
+    },
+    "FD853": {
+      "var_code": "FD853",
+      "level": 5,
+      "description": "FD853",
+      "parent": null,
+      "children": []
+    },
+    "FD854": {
+      "var_code": "FD854",
+      "level": 6,
+      "description": "FD854",
+      "parent": null,
+      "children": []
+    },
+    "FD855": {
+      "var_code": "FD855",
+      "level": 6,
+      "description": "FD855",
+      "parent": null,
+      "children": []
+    },
+    "FD1002": {
+      "var_code": "FD1002",
+      "level": 6,
+      "description": "FD1002",
+      "parent": null,
+      "children": []
+    },
+    "FD883": {
+      "var_code": "FD883",
+      "level": 5,
+      "description": "FD883",
+      "parent": null,
+      "children": []
+    },
+    "FD884": {
+      "var_code": "FD884",
+      "level": 6,
+      "description": "FD884",
+      "parent": null,
+      "children": []
+    },
+    "FD885": {
+      "var_code": "FD885",
+      "level": 6,
+      "description": "FD885",
+      "parent": null,
+      "children": []
+    },
+    "FD870": {
+      "var_code": "FD870",
+      "level": 5,
+      "description": "FD870",
+      "parent": null,
+      "children": []
+    },
+    "FD871": {
+      "var_code": "FD871",
+      "level": 6,
+      "description": "FD871",
+      "parent": null,
+      "children": []
+    },
+    "FD872": {
+      "var_code": "FD872",
+      "level": 6,
+      "description": "FD872",
+      "parent": null,
+      "children": []
+    },
+    "FD873": {
+      "var_code": "FD873",
+      "level": 6,
+      "description": "FD873",
+      "parent": null,
+      "children": []
+    },
+    "FD874": {
+      "var_code": "FD874",
+      "level": 6,
+      "description": "FD874",
+      "parent": null,
+      "children": []
+    },
+    "FD875": {
+      "var_code": "FD875",
+      "level": 6,
+      "description": "FD875",
+      "parent": null,
+      "children": []
+    },
+    "FD881": {
+      "var_code": "FD881",
+      "level": 6,
+      "description": "FD881",
+      "parent": null,
+      "children": []
+    },
+    "FD882": {
+      "var_code": "FD882",
+      "level": 6,
+      "description": "FD882",
+      "parent": null,
+      "children": []
+    },
+    "FD880": {
+      "var_code": "FD880",
+      "level": 6,
+      "description": "FD880",
+      "parent": null,
+      "children": []
+    },
+    "FD990": {
+      "var_code": "FD990",
+      "level": 3,
+      "description": "FD990",
+      "parent": null,
+      "children": []
+    },
+    "FD991": {
+      "var_code": "FD991",
+      "level": 4,
+      "description": "FD991",
+      "parent": null,
+      "children": []
+    },
+    "FD992": {
+      "var_code": "FD992",
+      "level": 5,
+      "description": "FD992",
+      "parent": null,
+      "children": []
+    },
+    "FD993": {
+      "var_code": "FD993",
+      "level": 5,
+      "description": "FD993",
+      "parent": null,
+      "children": []
+    },
+    "FD994": {
+      "var_code": "FD994",
+      "level": 5,
+      "description": "FD994",
+      "parent": null,
+      "children": []
+    },
+    "FD995": {
+      "var_code": "FD995",
+      "level": 4,
+      "description": "FD995",
+      "parent": null,
+      "children": []
+    },
+    "SH001": {
+      "var_code": "SH001",
+      "level": 2,
+      "description": "SH001",
+      "parent": null,
+      "children": []
+    },
+    "SH002": {
+      "var_code": "SH002",
+      "level": 3,
+      "description": "SH002",
+      "parent": null,
+      "children": []
+    },
+    "SH003": {
+      "var_code": "SH003",
+      "level": 4,
+      "description": "SH003",
+      "parent": null,
+      "children": []
+    },
+    "SH004": {
+      "var_code": "SH004",
+      "level": 5,
+      "description": "SH004",
+      "parent": null,
+      "children": []
+    },
+    "SH990": {
+      "var_code": "SH990",
+      "level": 5,
+      "description": "SH990",
+      "parent": null,
+      "children": []
+    },
+    "SH010": {
+      "var_code": "SH010",
+      "level": 4,
+      "description": "SH010",
+      "parent": null,
+      "children": []
+    },
+    "SH011": {
+      "var_code": "SH011",
+      "level": 5,
+      "description": "SH011",
+      "parent": null,
+      "children": []
+    },
+    "SH082": {
+      "var_code": "SH082",
+      "level": 5,
+      "description": "SH082",
+      "parent": null,
+      "children": []
+    },
+    "SH991": {
+      "var_code": "SH991",
+      "level": 5,
+      "description": "SH991",
+      "parent": null,
+      "children": []
+    },
+    "SH015": {
+      "var_code": "SH015",
+      "level": 5,
+      "description": "SH015",
+      "parent": null,
+      "children": []
+    },
+    "SH016": {
+      "var_code": "SH016",
+      "level": 5,
+      "description": "SH016",
+      "parent": null,
+      "children": []
+    },
+    "SH019": {
+      "var_code": "SH019",
+      "level": 6,
+      "description": "SH019",
+      "parent": null,
+      "children": []
+    },
+    "SH992": {
+      "var_code": "SH992",
+      "level": 6,
+      "description": "SH992",
+      "parent": null,
+      "children": []
+    },
+    "SH030": {
+      "var_code": "SH030",
+      "level": 4,
+      "description": "SH030",
+      "parent": null,
+      "children": []
+    },
+    "SH031": {
+      "var_code": "SH031",
+      "level": 5,
+      "description": "SH031",
+      "parent": null,
+      "children": []
+    },
+    "SH032": {
+      "var_code": "SH032",
+      "level": 5,
+      "description": "SH032",
+      "parent": null,
+      "children": []
+    },
+    "SH033": {
+      "var_code": "SH033",
+      "level": 5,
+      "description": "SH033",
+      "parent": null,
+      "children": []
+    },
+    "SH034": {
+      "var_code": "SH034",
+      "level": 5,
+      "description": "SH034",
+      "parent": null,
+      "children": []
+    },
+    "SH040": {
+      "var_code": "SH040",
+      "level": 3,
+      "description": "SH040",
+      "parent": null,
+      "children": []
+    },
+    "SH041": {
+      "var_code": "SH041",
+      "level": 4,
+      "description": "SH041",
+      "parent": null,
+      "children": []
+    },
+    "SH042": {
+      "var_code": "SH042",
+      "level": 5,
+      "description": "SH042",
+      "parent": null,
+      "children": []
+    },
+    "SH061": {
+      "var_code": "SH061",
+      "level": 5,
+      "description": "SH061",
+      "parent": null,
+      "children": []
+    },
+    "SH044": {
+      "var_code": "SH044",
+      "level": 5,
+      "description": "SH044",
+      "parent": null,
+      "children": []
+    },
+    "SH062": {
+      "var_code": "SH062",
+      "level": 5,
+      "description": "SH062",
+      "parent": null,
+      "children": []
+    },
+    "SH060": {
+      "var_code": "SH060",
+      "level": 5,
+      "description": "SH060",
+      "parent": null,
+      "children": []
+    },
+    "SH046": {
+      "var_code": "SH046",
+      "level": 5,
+      "description": "SH046",
+      "parent": null,
+      "children": []
+    },
+    "SH047": {
+      "var_code": "SH047",
+      "level": 4,
+      "description": "SH047",
+      "parent": null,
+      "children": []
+    },
+    "SH050": {
+      "var_code": "SH050",
+      "level": 4,
+      "description": "SH050",
+      "parent": null,
+      "children": []
+    },
+    "HO001": {
+      "var_code": "HO001",
+      "level": 2,
+      "description": "HO001_C",
+      "parent": null,
+      "children": []
+    },
+    "CS030": {
+      "var_code": "CS030",
+      "level": 3,
+      "description": "CS030",
+      "parent": null,
+      "children": []
+    },
+    "CS003": {
+      "var_code": "CS003",
+      "level": 4,
+      "description": "CS003",
+      "parent": null,
+      "children": []
+    },
+    "CS004": {
+      "var_code": "CS004",
+      "level": 5,
+      "description": "CS004",
+      "parent": null,
+      "children": []
+    },
+    "CS005": {
+      "var_code": "CS005",
+      "level": 5,
+      "description": "CS005",
+      "parent": null,
+      "children": []
+    },
+    "CS021": {
+      "var_code": "CS021",
+      "level": 5,
+      "description": "CS021",
+      "parent": null,
+      "children": []
+    },
+    "CS007": {
+      "var_code": "CS007",
+      "level": 4,
+      "description": "CS007",
+      "parent": null,
+      "children": []
+    },
+    "CS008": {
+      "var_code": "CS008",
+      "level": 4,
+      "description": "CS008",
+      "parent": null,
+      "children": []
+    },
+    "CS020": {
+      "var_code": "CS020",
+      "level": 4,
+      "description": "CS020",
+      "parent": null,
+      "children": []
+    },
+    "HO002": {
+      "var_code": "HO002",
+      "level": 3,
+      "description": "HO002",
+      "parent": null,
+      "children": []
+    },
+    "HO003": {
+      "var_code": "HO003",
+      "level": 3,
+      "description": "HO003_C",
+      "parent": null,
+      "children": []
+    },
+    "HO004": {
+      "var_code": "HO004",
+      "level": 4,
+      "description": "HO004",
+      "parent": null,
+      "children": []
+    },
+    "HO005": {
+      "var_code": "HO005",
+      "level": 4,
+      "description": "HO005",
+      "parent": null,
+      "children": []
+    },
+    "HO006": {
+      "var_code": "HO006",
+      "level": 4,
+      "description": "HO006",
+      "parent": null,
+      "children": []
+    },
+    "HO010": {
+      "var_code": "HO010",
+      "level": 3,
+      "description": "HO010",
+      "parent": null,
+      "children": []
+    },
+    "HO014": {
+      "var_code": "HO014",
+      "level": 3,
+      "description": "HO014",
+      "parent": null,
+      "children": []
+    },
+    "HO018": {
+      "var_code": "HO018",
+      "level": 3,
+      "description": "HO018_C",
+      "parent": null,
+      "children": []
+    },
+    "HO022": {
+      "var_code": "HO022",
+      "level": 3,
+      "description": "HO022",
+      "parent": null,
+      "children": []
+    },
+    "CC001": {
+      "var_code": "CC001",
+      "level": 3,
+      "description": "CC001",
+      "parent": null,
+      "children": []
+    },
+    "HF001": {
+      "var_code": "HF001",
+      "level": 2,
+      "description": "HF001_C",
+      "parent": null,
+      "children": []
+    },
+    "HF002": {
+      "var_code": "HF002",
+      "level": 3,
+      "description": "HF002_C",
+      "parent": null,
+      "children": []
+    },
+    "HE001": {
+      "var_code": "HE001",
+      "level": 3,
+      "description": "HE001_C",
+      "parent": null,
+      "children": []
+    },
+    "HE002": {
+      "var_code": "HE002",
+      "level": 4,
+      "description": "HE002_C",
+      "parent": null,
+      "children": []
+    },
+    "HE010": {
+      "var_code": "HE010",
+      "level": 4,
+      "description": "HE010_C",
+      "parent": null,
+      "children": []
+    },
+    "HE017": {
+      "var_code": "HE017",
+      "level": 3,
+      "description": "HE017",
+      "parent": null,
+      "children": []
+    },
+    "HE020": {
+      "var_code": "HE020",
+      "level": 3,
+      "description": "HE020",
+      "parent": null,
+      "children": []
+    },
+    "CL030": {
+      "var_code": "CL030",
+      "level": 2,
+      "description": "CL030",
+      "parent": null,
+      "children": []
+    },
+    "CL029": {
+      "var_code": "CL029",
+      "level": 3,
+      "description": "CL029",
+      "parent": null,
+      "children": []
+    },
+    "CL026": {
+      "var_code": "CL026",
+      "level": 3,
+      "description": "CL026",
+      "parent": null,
+      "children": []
+    },
+    "CL023": {
+      "var_code": "CL023",
+      "level": 3,
+      "description": "CL023",
+      "parent": null,
+      "children": []
+    },
+    "CL990": {
+      "var_code": "CL990",
+      "level": 3,
+      "description": "CL990",
+      "parent": null,
+      "children": []
+    },
+    "CL017": {
+      "var_code": "CL017",
+      "level": 3,
+      "description": "CL017",
+      "parent": null,
+      "children": []
+    },
+    "CL016": {
+      "var_code": "CL016",
+      "level": 3,
+      "description": "CL016",
+      "parent": null,
+      "children": []
+    },
+    "CL014": {
+      "var_code": "CL014",
+      "level": 4,
+      "description": "CL014",
+      "parent": null,
+      "children": []
+    },
+    "CL015": {
+      "var_code": "CL015",
+      "level": 4,
+      "description": "CL015",
+      "parent": null,
+      "children": []
+    },
+    "TR001": {
+      "var_code": "TR001",
+      "level": 2,
+      "description": "TR001_C",
+      "parent": null,
+      "children": []
+    },
+    "TR002": {
+      "var_code": "TR002",
+      "level": 3,
+      "description": "TR002_C",
+      "parent": null,
+      "children": []
+    },
+    "TR003": {
+      "var_code": "TR003",
+      "level": 4,
+      "description": "TR003",
+      "parent": null,
+      "children": []
+    },
+    "TR004": {
+      "var_code": "TR004",
+      "level": 5,
+      "description": "TR004",
+      "parent": null,
+      "children": []
+    },
+    "TR008": {
+      "var_code": "TR008",
+      "level": 5,
+      "description": "TR008",
+      "parent": null,
+      "children": []
+    },
+    "TR010": {
+      "var_code": "TR010",
+      "level": 5,
+      "description": "TR010",
+      "parent": null,
+      "children": []
+    },
+    "TR020": {
+      "var_code": "TR020",
+      "level": 4,
+      "description": "TR020_C",
+      "parent": null,
+      "children": []
+    },
+    "TR021": {
+      "var_code": "TR021",
+      "level": 5,
+      "description": "TR021",
+      "parent": null,
+      "children": []
+    },
+    "TR022": {
+      "var_code": "TR022",
+      "level": 5,
+      "description": "TR022",
+      "parent": null,
+      "children": []
+    },
+    "TR030": {
+      "var_code": "TR030",
+      "level": 4,
+      "description": "TR030_C",
+      "parent": null,
+      "children": []
+    },
+    "TR031": {
+      "var_code": "TR031",
+      "level": 5,
+      "description": "TR031",
+      "parent": null,
+      "children": []
+    },
+    "TR085": {
+      "var_code": "TR085",
+      "level": 5,
+      "description": "TR085",
+      "parent": null,
+      "children": []
+    },
+    "TR033": {
+      "var_code": "TR033",
+      "level": 5,
+      "description": "TR033",
+      "parent": null,
+      "children": []
+    },
+    "TR034": {
+      "var_code": "TR034",
+      "level": 5,
+      "description": "TR034",
+      "parent": null,
+      "children": []
+    },
+    "TR071": {
+      "var_code": "TR071",
+      "level": 5,
+      "description": "TR071",
+      "parent": null,
+      "children": []
+    },
+    "TR036": {
+      "var_code": "TR036",
+      "level": 5,
+      "description": "TR036",
+      "parent": null,
+      "children": []
+    },
+    "TR038": {
+      "var_code": "TR038",
+      "level": 5,
+      "description": "TR038",
+      "parent": null,
+      "children": []
+    },
+    "TR039": {
+      "var_code": "TR039",
+      "level": 5,
+      "description": "TR039",
+      "parent": null,
+      "children": []
+    },
+    "TR070": {
+      "var_code": "TR070",
+      "level": 3,
+      "description": "TR070",
+      "parent": null,
+      "children": []
+    },
+    "HC001": {
+      "var_code": "HC001",
+      "level": 2,
+      "description": "HC001_C",
+      "parent": null,
+      "children": []
+    },
+    "HC002": {
+      "var_code": "HC002",
+      "level": 3,
+      "description": "HC002_C",
+      "parent": null,
+      "children": []
+    },
+    "HC022": {
+      "var_code": "HC022",
+      "level": 3,
+      "description": "HC022",
+      "parent": null,
+      "children": []
+    },
+    "HC061": {
+      "var_code": "HC061",
+      "level": 4,
+      "description": "HC061",
+      "parent": null,
+      "children": []
+    },
+    "HC025": {
+      "var_code": "HC025",
+      "level": 4,
+      "description": "HC025",
+      "parent": null,
+      "children": []
+    },
+    "PC001": {
+      "var_code": "PC001",
+      "level": 2,
+      "description": "PC001_C",
+      "parent": null,
+      "children": []
+    },
+    "PC002": {
+      "var_code": "PC002",
+      "level": 3,
+      "description": "PC002",
+      "parent": null,
+      "children": []
+    },
+    "PC020": {
+      "var_code": "PC020",
+      "level": 3,
+      "description": "PC020",
+      "parent": null,
+      "children": []
+    },
+    "RE001": {
+      "var_code": "RE001",
+      "level": 2,
+      "description": "RE001_C",
+      "parent": null,
+      "children": []
+    },
+    "RE002": {
+      "var_code": "RE002",
+      "level": 3,
+      "description": "RE002_C",
+      "parent": null,
+      "children": []
+    },
+    "RE124": {
+      "var_code": "RE124",
+      "level": 4,
+      "description": "RE124_C",
+      "parent": null,
+      "children": []
+    },
+    "RE003": {
+      "var_code": "RE003",
+      "level": 5,
+      "description": "RE003",
+      "parent": null,
+      "children": []
+    },
+    "RE127": {
+      "var_code": "RE127",
+      "level": 5,
+      "description": "RE127",
+      "parent": null,
+      "children": []
+    },
+    "RE990": {
+      "var_code": "RE990",
+      "level": 4,
+      "description": "RE990",
+      "parent": null,
+      "children": []
+    },
+    "RE006": {
+      "var_code": "RE006",
+      "level": 4,
+      "description": "RE006",
+      "parent": null,
+      "children": []
+    },
+    "RE007": {
+      "var_code": "RE007",
+      "level": 4,
+      "description": "RE007",
+      "parent": null,
+      "children": []
+    },
+    "RE010": {
+      "var_code": "RE010",
+      "level": 4,
+      "description": "RE010_C",
+      "parent": null,
+      "children": []
+    },
+    "RE016": {
+      "var_code": "RE016",
+      "level": 4,
+      "description": "RE016",
+      "parent": null,
+      "children": []
+    },
+    "RE120": {
+      "var_code": "RE120",
+      "level": 5,
+      "description": "RE120",
+      "parent": null,
+      "children": []
+    },
+    "RE020": {
+      "var_code": "RE020",
+      "level": 5,
+      "description": "RE020",
+      "parent": null,
+      "children": []
+    },
+    "RE022": {
+      "var_code": "RE022",
+      "level": 4,
+      "description": "RE022",
+      "parent": null,
+      "children": []
+    },
+    "RE032": {
+      "var_code": "RE032",
+      "level": 4,
+      "description": "RE032",
+      "parent": null,
+      "children": []
+    },
+    "RE040": {
+      "var_code": "RE040",
+      "level": 3,
+      "description": "RE040_C",
+      "parent": null,
+      "children": []
+    },
+    "RE041": {
+      "var_code": "RE041",
+      "level": 4,
+      "description": "RE041_C",
+      "parent": null,
+      "children": []
+    },
+    "RE052": {
+      "var_code": "RE052",
+      "level": 4,
+      "description": "RE052",
+      "parent": null,
+      "children": []
+    },
+    "RE060": {
+      "var_code": "RE060",
+      "level": 3,
+      "description": "RE060_C",
+      "parent": null,
+      "children": []
+    },
+    "RE061": {
+      "var_code": "RE061",
+      "level": 4,
+      "description": "RE061_C",
+      "parent": null,
+      "children": []
+    },
+    "RE062": {
+      "var_code": "RE062",
+      "level": 5,
+      "description": "RE062",
+      "parent": null,
+      "children": []
+    },
+    "RE063": {
+      "var_code": "RE063",
+      "level": 5,
+      "description": "RE063",
+      "parent": null,
+      "children": []
+    },
+    "RE066": {
+      "var_code": "RE066",
+      "level": 5,
+      "description": "RE066",
+      "parent": null,
+      "children": []
+    },
+    "RE067": {
+      "var_code": "RE067",
+      "level": 5,
+      "description": "RE067",
+      "parent": null,
+      "children": []
+    },
+    "RE090": {
+      "var_code": "RE090",
+      "level": 4,
+      "description": "RE090",
+      "parent": null,
+      "children": []
+    },
+    "RE074": {
+      "var_code": "RE074",
+      "level": 4,
+      "description": "RE074",
+      "parent": null,
+      "children": []
+    },
+    "RE140": {
+      "var_code": "RE140",
+      "level": 4,
+      "description": "RE140",
+      "parent": null,
+      "children": []
+    },
+    "RV001": {
+      "var_code": "RV001",
+      "level": 3,
+      "description": "RV001",
+      "parent": null,
+      "children": []
+    },
+    "RV020": {
+      "var_code": "RV020",
+      "level": 4,
+      "description": "RV020",
+      "parent": null,
+      "children": []
+    },
+    "RV010": {
+      "var_code": "RV010",
+      "level": 4,
+      "description": "RV010",
+      "parent": null,
+      "children": []
+    },
+    "ED002": {
+      "var_code": "ED002",
+      "level": 2,
+      "description": "ED002",
+      "parent": null,
+      "children": []
+    },
+    "ED003": {
+      "var_code": "ED003",
+      "level": 3,
+      "description": "ED003",
+      "parent": null,
+      "children": []
+    },
+    "ED030": {
+      "var_code": "ED030",
+      "level": 3,
+      "description": "ED030",
+      "parent": null,
+      "children": []
+    },
+    "RO001": {
+      "var_code": "RO001",
+      "level": 2,
+      "description": "RO001_C",
+      "parent": null,
+      "children": []
+    },
+    "RO002": {
+      "var_code": "RO002",
+      "level": 3,
+      "description": "RO002",
+      "parent": null,
+      "children": []
+    },
+    "RO003": {
+      "var_code": "RO003",
+      "level": 3,
+      "description": "RO003",
+      "parent": null,
+      "children": []
+    },
+    "RO004": {
+      "var_code": "RO004",
+      "level": 3,
+      "description": "RO004",
+      "parent": null,
+      "children": []
+    },
+    "RO005": {
+      "var_code": "RO005",
+      "level": 3,
+      "description": "RO005",
+      "parent": null,
+      "children": []
+    },
+    "RO010": {
+      "var_code": "RO010",
+      "level": 3,
+      "description": "RO010",
+      "parent": null,
+      "children": []
+    },
+    "TA018": {
+      "var_code": "TA018",
+      "level": 2,
+      "description": "TA018_C",
+      "parent": null,
+      "children": []
+    },
+    "TA990": {
+      "var_code": "TA990",
+      "level": 3,
+      "description": "TA990",
+      "parent": null,
+      "children": []
+    },
+    "TA005": {
+      "var_code": "TA005",
+      "level": 3,
+      "description": "TA005",
+      "parent": null,
+      "children": []
+    },
+    "TA006": {
+      "var_code": "TA006",
+      "level": 4,
+      "description": "TA006",
+      "parent": null,
+      "children": []
+    },
+    "TA007": {
+      "var_code": "TA007",
+      "level": 4,
+      "description": "TA007",
+      "parent": null,
+      "children": []
+    },
+    "TA008": {
+      "var_code": "TA008",
+      "level": 4,
+      "description": "TA008",
+      "parent": null,
+      "children": []
+    },
+    "GC001": {
+      "var_code": "GC001",
+      "level": 2,
+      "description": "GC001",
+      "parent": null,
+      "children": []
+    },
+    "ME001": {
+      "var_code": "ME001",
+      "level": 2,
+      "description": "ME001_C",
+      "parent": null,
+      "children": []
+    },
+    "ME039": {
+      "var_code": "ME039",
+      "level": 3,
+      "description": "ME039",
+      "parent": null,
+      "children": []
+    },
+    "ME040": {
+      "var_code": "ME040",
+      "level": 3,
+      "description": "ME040_C",
+      "parent": null,
+      "children": []
+    },
+    "TX010": {
+      "var_code": "TX010",
+      "level": 1,
+      "description": "TX010",
+      "parent": "TE001",
+      "children": []
+    },
+    "EP011": {
+      "var_code": "EP011",
+      "level": 1,
+      "description": "EP011",
+      "parent": "TE001",
+      "children": []
+    },
+    "MG001": {
+      "var_code": "MG001",
+      "level": 1,
+      "description": "MG001",
+      "parent": "TE001",
+      "children": []
+    }
+  },
+  "level_vars": {
+    "0": [
+      "TE001"
+    ],
+    "1": [
+      "TC001",
+      "TX010",
+      "EP011",
+      "MG001"
+    ],
+    "2": [
+      "FD001",
+      "SH001",
+      "HO001",
+      "HF001",
+      "CL030",
+      "TR001",
+      "HC001",
+      "PC001",
+      "RE001",
+      "ED002",
+      "RO001",
+      "TA018",
+      "GC001",
+      "ME001"
+    ],
+    "3": [
+      "FD003",
+      "FD990",
+      "SH002",
+      "SH040",
+      "CS030",
+      "HO002",
+      "HO003",
+      "HO010",
+      "HO014",
+      "HO018",
+      "HO022",
+      "CC001",
+      "HF002",
+      "HE001",
+      "HE017",
+      "HE020",
+      "CL029",
+      "CL026",
+      "CL023",
+      "CL990",
+      "CL017",
+      "CL016",
+      "TR002",
+      "TR070",
+      "HC002",
+      "HC022",
+      "PC002",
+      "PC020",
+      "RE002",
+      "RE040",
+      "RE060",
+      "RV001",
+      "ED003",
+      "ED030",
+      "RO002",
+      "RO003",
+      "RO004",
+      "RO005",
+      "RO010",
+      "TA990",
+      "TA005",
+      "ME039",
+      "ME040"
+    ],
+    "4": [
+      "FD100",
+      "FD200",
+      "FD300",
+      "FD400",
+      "FD500",
+      "FD600",
+      "FD700",
+      "FD800",
+      "FD991",
+      "FD995",
+      "SH003",
+      "SH010",
+      "SH030",
+      "SH041",
+      "SH047",
+      "SH050",
+      "CS003",
+      "CS007",
+      "CS008",
+      "CS020",
+      "HO004",
+      "HO005",
+      "HO006",
+      "HE002",
+      "HE010",
+      "CL014",
+      "CL015",
+      "TR003",
+      "TR020",
+      "TR030",
+      "HC061",
+      "HC025",
+      "RE124",
+      "RE990",
+      "RE006",
+      "RE007",
+      "RE010",
+      "RE016",
+      "RE022",
+      "RE032",
+      "RE041",
+      "RE052",
+      "RE061",
+      "RE090",
+      "RE074",
+      "RE140",
+      "RV020",
+      "RV010",
+      "TA006",
+      "TA007",
+      "TA008"
+    ],
+    "5": [
+      "FD101",
+      "FD104",
+      "FD107",
+      "FD201",
+      "FD204",
+      "FD208",
+      "FD301",
+      "FD330",
+      "FD380",
+      "FD401",
+      "FD440",
+      "FD470",
+      "FD501",
+      "FD520",
+      "FD540",
+      "FD541",
+      "FD550",
+      "FD570",
+      "FD601",
+      "FD650",
+      "FD701",
+      "FD720",
+      "FD730",
+      "FD801",
+      "FD814",
+      "FD827",
+      "FD833",
+      "FD841",
+      "FD845",
+      "FD850",
+      "FD853",
+      "FD883",
+      "FD870",
+      "FD992",
+      "FD993",
+      "FD994",
+      "SH004",
+      "SH990",
+      "SH011",
+      "SH082",
+      "SH991",
+      "SH015",
+      "SH016",
+      "SH031",
+      "SH032",
+      "SH033",
+      "SH034",
+      "SH042",
+      "SH061",
+      "SH044",
+      "SH062",
+      "SH060",
+      "SH046",
+      "CS004",
+      "CS005",
+      "CS021",
+      "TR004",
+      "TR008",
+      "TR010",
+      "TR021",
+      "TR022",
+      "TR031",
+      "TR085",
+      "TR033",
+      "TR034",
+      "TR071",
+      "TR036",
+      "TR038",
+      "TR039",
+      "RE003",
+      "RE127",
+      "RE120",
+      "RE020",
+      "RE062",
+      "RE063",
+      "RE066",
+      "RE067"
+    ],
+    "6": [
+      "FD102",
+      "FD103",
+      "FD105",
+      "FD106",
+      "FD108",
+      "FD112",
+      "FD202",
+      "FD203",
+      "FD205",
+      "FD206",
+      "FD207",
+      "FD209",
+      "FD212",
+      "FD302",
+      "FD303",
+      "FD304",
+      "FD305",
+      "FD308",
+      "FD309",
+      "FD315",
+      "FD316",
+      "FD331",
+      "FD350",
+      "FD381",
+      "FD382",
+      "FD402",
+      "FD403",
+      "FD404",
+      "FD405",
+      "FD406",
+      "FD407",
+      "FD408",
+      "FD409",
+      "FD410",
+      "FD411",
+      "FD418",
+      "FD412",
+      "FD441",
+      "FD442",
+      "FD447",
+      "FD471",
+      "FD478",
+      "FD479",
+      "FD502",
+      "FD503",
+      "FD504",
+      "FD505",
+      "FD521",
+      "FD522",
+      "FD525",
+      "FD551",
+      "FD555",
+      "FD571",
+      "FD572",
+      "FD602",
+      "FD603",
+      "FD604",
+      "FD607",
+      "FD651",
+      "FD660",
+      "FD1003",
+      "FD705",
+      "FD706",
+      "FD721",
+      "FD722",
+      "FD724",
+      "FD723",
+      "FD731",
+      "FD732",
+      "FD802",
+      "FD806",
+      "FD815",
+      "FD821",
+      "FD828",
+      "FD829",
+      "FD1004",
+      "FD834",
+      "FD835",
+      "FD836",
+      "FD837",
+      "FD879",
+      "FD838",
+      "FD840",
+      "FD421",
+      "FD839",
+      "FD842",
+      "FD843",
+      "FD844",
+      "FD889",
+      "FD846",
+      "FD847",
+      "FD857",
+      "FD1001",
+      "FD851",
+      "FD852",
+      "FD854",
+      "FD855",
+      "FD1002",
+      "FD884",
+      "FD885",
+      "FD871",
+      "FD872",
+      "FD873",
+      "FD874",
+      "FD875",
+      "FD881",
+      "FD882",
+      "FD880",
+      "SH019",
+      "SH992"
+    ]
+  },
+  "sibling_groups": {
+    "None_0": [
+      "TE001"
+    ],
+    "TE001_1": [
+      "TC001",
+      "TX010",
+      "EP011",
+      "MG001"
+    ],
+    "None_2": [
+      "FD001",
+      "SH001",
+      "HO001",
+      "HF001",
+      "CL030",
+      "TR001",
+      "HC001",
+      "PC001",
+      "RE001",
+      "ED002",
+      "RO001",
+      "TA018",
+      "GC001",
+      "ME001"
+    ],
+    "None_3": [
+      "FD003",
+      "FD990",
+      "SH002",
+      "SH040",
+      "CS030",
+      "HO002",
+      "HO003",
+      "HO010",
+      "HO014",
+      "HO018",
+      "HO022",
+      "CC001",
+      "HF002",
+      "HE001",
+      "HE017",
+      "HE020",
+      "CL029",
+      "CL026",
+      "CL023",
+      "CL990",
+      "CL017",
+      "CL016",
+      "TR002",
+      "TR070",
+      "HC002",
+      "HC022",
+      "PC002",
+      "PC020",
+      "RE002",
+      "RE040",
+      "RE060",
+      "RV001",
+      "ED003",
+      "ED030",
+      "RO002",
+      "RO003",
+      "RO004",
+      "RO005",
+      "RO010",
+      "TA990",
+      "TA005",
+      "ME039",
+      "ME040"
+    ],
+    "None_4": [
+      "FD100",
+      "FD200",
+      "FD300",
+      "FD400",
+      "FD500",
+      "FD600",
+      "FD700",
+      "FD800",
+      "FD991",
+      "FD995",
+      "SH003",
+      "SH010",
+      "SH030",
+      "SH041",
+      "SH047",
+      "SH050",
+      "CS003",
+      "CS007",
+      "CS008",
+      "CS020",
+      "HO004",
+      "HO005",
+      "HO006",
+      "HE002",
+      "HE010",
+      "CL014",
+      "CL015",
+      "TR003",
+      "TR020",
+      "TR030",
+      "HC061",
+      "HC025",
+      "RE124",
+      "RE990",
+      "RE006",
+      "RE007",
+      "RE010",
+      "RE016",
+      "RE022",
+      "RE032",
+      "RE041",
+      "RE052",
+      "RE061",
+      "RE090",
+      "RE074",
+      "RE140",
+      "RV020",
+      "RV010",
+      "TA006",
+      "TA007",
+      "TA008"
+    ],
+    "None_5": [
+      "FD101",
+      "FD104",
+      "FD107",
+      "FD201",
+      "FD204",
+      "FD208",
+      "FD301",
+      "FD330",
+      "FD380",
+      "FD401",
+      "FD440",
+      "FD470",
+      "FD501",
+      "FD520",
+      "FD540",
+      "FD541",
+      "FD550",
+      "FD570",
+      "FD601",
+      "FD650",
+      "FD701",
+      "FD720",
+      "FD730",
+      "FD801",
+      "FD814",
+      "FD827",
+      "FD833",
+      "FD841",
+      "FD845",
+      "FD850",
+      "FD853",
+      "FD883",
+      "FD870",
+      "FD992",
+      "FD993",
+      "FD994",
+      "SH004",
+      "SH990",
+      "SH011",
+      "SH082",
+      "SH991",
+      "SH015",
+      "SH016",
+      "SH031",
+      "SH032",
+      "SH033",
+      "SH034",
+      "SH042",
+      "SH061",
+      "SH044",
+      "SH062",
+      "SH060",
+      "SH046",
+      "CS004",
+      "CS005",
+      "CS021",
+      "TR004",
+      "TR008",
+      "TR010",
+      "TR021",
+      "TR022",
+      "TR031",
+      "TR085",
+      "TR033",
+      "TR034",
+      "TR071",
+      "TR036",
+      "TR038",
+      "TR039",
+      "RE003",
+      "RE127",
+      "RE120",
+      "RE020",
+      "RE062",
+      "RE063",
+      "RE066",
+      "RE067"
+    ],
+    "None_6": [
+      "FD102",
+      "FD103",
+      "FD105",
+      "FD106",
+      "FD108",
+      "FD112",
+      "FD202",
+      "FD203",
+      "FD205",
+      "FD206",
+      "FD207",
+      "FD209",
+      "FD212",
+      "FD302",
+      "FD303",
+      "FD304",
+      "FD305",
+      "FD308",
+      "FD309",
+      "FD315",
+      "FD316",
+      "FD331",
+      "FD350",
+      "FD381",
+      "FD382",
+      "FD402",
+      "FD403",
+      "FD404",
+      "FD405",
+      "FD406",
+      "FD407",
+      "FD408",
+      "FD409",
+      "FD410",
+      "FD411",
+      "FD418",
+      "FD412",
+      "FD441",
+      "FD442",
+      "FD447",
+      "FD471",
+      "FD478",
+      "FD479",
+      "FD502",
+      "FD503",
+      "FD504",
+      "FD505",
+      "FD521",
+      "FD522",
+      "FD525",
+      "FD551",
+      "FD555",
+      "FD571",
+      "FD572",
+      "FD602",
+      "FD603",
+      "FD604",
+      "FD607",
+      "FD651",
+      "FD660",
+      "FD1003",
+      "FD705",
+      "FD706",
+      "FD721",
+      "FD722",
+      "FD724",
+      "FD723",
+      "FD731",
+      "FD732",
+      "FD802",
+      "FD806",
+      "FD815",
+      "FD821",
+      "FD828",
+      "FD829",
+      "FD1004",
+      "FD834",
+      "FD835",
+      "FD836",
+      "FD837",
+      "FD879",
+      "FD838",
+      "FD840",
+      "FD421",
+      "FD839",
+      "FD842",
+      "FD843",
+      "FD844",
+      "FD889",
+      "FD846",
+      "FD847",
+      "FD857",
+      "FD1001",
+      "FD851",
+      "FD852",
+      "FD854",
+      "FD855",
+      "FD1002",
+      "FD884",
+      "FD885",
+      "FD871",
+      "FD872",
+      "FD873",
+      "FD874",
+      "FD875",
+      "FD881",
+      "FD882",
+      "FD880",
+      "SH019",
+      "SH992"
+    ]
+  }
+}

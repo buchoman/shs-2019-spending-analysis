@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import pyreadstat
 from pathlib import Path
+import json
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -568,6 +569,20 @@ for category, vars_list in SPENDING_CATEGORIES.items():
     ALL_SPENDING_VARS.extend(vars_list)
 ALL_SPENDING_VARS = sorted(set(ALL_SPENDING_VARS))
 
+# Load hierarchy structure
+@st.cache_data
+def load_hierarchy():
+    """Load the hierarchy structure from JSON file"""
+    try:
+        hierarchy_file = Path("hierarchy_structure.json")
+        if hierarchy_file.exists():
+            with open(hierarchy_file, 'r') as f:
+                return json.load(f)
+        return None
+    except Exception as e:
+        st.warning(f"Could not load hierarchy structure: {e}")
+        return None
+
 @st.cache_data
 def load_data():
     """Load the main dataset"""
@@ -689,6 +704,69 @@ def format_option_label(var_name, value):
     label = format_value(var_name, value)
     return f"{label} ({value})" if label != str(value) else str(value)
 
+def organize_hierarchical_results(results_df, hierarchy_data):
+    """Organize results by hierarchy level with proper indentation"""
+    if hierarchy_data is None:
+        return None, None
+    
+    var_to_node = hierarchy_data.get('var_to_node', {})
+    level_vars = hierarchy_data.get('level_vars', {})
+    
+    # Build ordered list based on hierarchy file order (by level, then by hierarchy position)
+    # Create a mapping of var_code to results
+    results_dict = {}
+    for _, row in results_df.iterrows():
+        var_code = row['Spending Code']
+        results_dict[var_code] = {
+            'var_code': var_code,
+            'mean': row['Mean Dollars Per Year'],
+            'variance': row['Variance'],
+            'std_error': row['Standard Error'],
+            'cv': row['Coefficient of Variation']
+        }
+    
+    # Get all variables in hierarchy order (by level, maintaining file order)
+    hierarchical_results = []
+    for level in sorted(level_vars.keys()):
+        vars_at_level = level_vars[level]
+        for var_code in vars_at_level:
+            if var_code in results_dict:  # Only include if we have results for it
+                node = var_to_node.get(var_code, {})
+                hierarchical_results.append({
+                    'var_code': var_code,
+                    'level': level,
+                    'parent': node.get('parent'),
+                    'description': node.get('description', SPENDING_DESCRIPTIONS.get(var_code, var_code)),
+                    'mean': results_dict[var_code]['mean'],
+                    'variance': results_dict[var_code]['variance'],
+                    'std_error': results_dict[var_code]['std_error'],
+                    'cv': results_dict[var_code]['cv']
+                })
+    
+    return hierarchical_results, var_to_node
+
+def build_hierarchical_display(hierarchical_results, var_to_node):
+    """Build display data with proper indentation"""
+    display_rows = []
+    
+    for item in hierarchical_results:
+        level = item['level']
+        indent = "  " * level  # 2 spaces per level
+        var_code = item['var_code']
+        description = item['description']
+        
+        display_rows.append({
+            'Spending Code': var_code,
+            'Spending Description': f"{indent}{description}",
+            'Level': level,
+            'Mean Dollars Per Year': item['mean'],
+            'Variance': item['variance'],
+            'Standard Error': item['std_error'],
+            'Coefficient of Variation': item['cv']
+        })
+    
+    return pd.DataFrame(display_rows)
+
 def main():
     st.title("💰 Survey of Household Spending 2019 - Spending Estimates Application")
     st.markdown("""
@@ -696,10 +774,11 @@ def main():
     of average household spending (in dollars per year) with bootstrap variance estimates.
     """)
     
-    # Load data
+    # Load data and hierarchy
     with st.spinner("Loading data..."):
         df, meta = load_data()
         df_bsw, meta_bsw = load_bootstrap_weights()
+        hierarchy_data = load_hierarchy()
     
     if df is None:
         st.error("Failed to load data. Please check that the data files are in the correct location.")
@@ -711,6 +790,8 @@ def main():
     st.success(f"Data loaded successfully! {len(df):,} records.")
     if len(bootstrap_cols) > 0:
         st.info(f"Bootstrap weights loaded: {len(bootstrap_cols)} weights available.")
+    if hierarchy_data:
+        st.info(f"Hierarchy structure loaded: {len(hierarchy_data.get('var_to_node', {}))} variables.")
     
     # Filters at the top of the page
     st.header("📊 Select Attributes")
@@ -1013,43 +1094,12 @@ def main():
             overall_progress_bar.progress(0.7 * (idx + 1) / total_vars)
         
         st.session_state.results = pd.DataFrame(results)
+        st.session_state.hierarchy_data = hierarchy_data  # Store hierarchy for later use
         progress_bar.empty()
         status_text.empty()
         
-        # Phase 2: Calculate category results (30% of progress)
-        overall_status_text.text("Phase 2 of 2: Calculating aggregated category estimates...")
-        category_results_list = []
-        total_categories = len(SPENDING_CATEGORIES)
-        
-        for cat_idx, (category, vars_list) in enumerate(SPENDING_CATEGORIES.items()):
-            # Get variables in this category that exist in the data
-            cat_vars = [v for v in vars_list if v in filtered_df.columns]
-            
-            if len(cat_vars) == 0:
-                continue
-            
-            # Create a sum variable for this category
-            filtered_df['_CAT_SUM'] = filtered_df[cat_vars].sum(axis=1)
-            
-            # Calculate weighted mean for the sum
-            mean_est = calculate_weighted_mean(filtered_df, '_CAT_SUM')
-            
-            # Calculate bootstrap variance for the sum
-            variance = calculate_bootstrap_variance(filtered_df, '_CAT_SUM', bootstrap_cols=bootstrap_cols)
-            std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
-            
-            category_results_list.append({
-                'Spending Category': category,
-                'Mean Dollars Per Year': mean_est,
-                'Variance': variance,
-                'Standard Error': std_error,
-                'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
-            })
-            
-            # Update overall progress bar
-            overall_progress_bar.progress(0.7 + 0.3 * (cat_idx + 1) / total_categories)
-        
-        st.session_state.category_results = pd.DataFrame(category_results_list)
+        # Phase 2 complete (no summing - just display individual variables hierarchically)
+        overall_progress_bar.progress(1.0)
         
         # Calculate average household income and current consumption
         avg_household_income = calculate_weighted_mean(filtered_df, 'HH_TotInc')
@@ -1150,24 +1200,22 @@ def main():
                 summary_df = pd.DataFrame(summary_data)
                 st.dataframe(summary_df, use_container_width=True)
         
-        # Display by broad spending category first
-        if 'category_results' in st.session_state and st.session_state.category_results is not None:
-            st.subheader("By Broad Spending Category")
-            category_results = st.session_state.category_results.copy()
-            
-            # Round
-            for col in numeric_cols:
-                if col in category_results.columns:
-                    category_results[col] = category_results[col].round(2)
-            
-            st.dataframe(category_results, use_container_width=True, height=400)
-        
-        # Display by spending code
-        st.subheader("By Spending Code")
-        # Reorder columns to show description first
-        display_cols = ['Spending Code', 'Spending Description', 'Spending Category'] + [c for c in results_df.columns if c not in ['Spending Code', 'Spending Description', 'Spending Category']]
-        display_df = results_df[[c for c in display_cols if c in results_df.columns]]
-        st.dataframe(display_df, use_container_width=True, height=400)
+        # Display by spending code with hierarchy
+        st.subheader("By Spending Code (Hierarchical)")
+        # Organize results hierarchically
+        hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
+        hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
+        if hierarchical_results:
+            display_df = build_hierarchical_display(hierarchical_results, var_to_node)
+            # Reorder columns
+            display_cols = ['Spending Code', 'Spending Description'] + [c for c in display_df.columns if c not in ['Spending Code', 'Spending Description', 'Level']]
+            display_df = display_df[[c for c in display_cols if c in display_df.columns]]
+            st.dataframe(display_df, use_container_width=True, height=400)
+        else:
+            # Fallback to original display if hierarchy not available
+            display_cols = ['Spending Code', 'Spending Description', 'Spending Category'] + [c for c in results_df.columns if c not in ['Spending Code', 'Spending Description', 'Spending Category']]
+            display_df = results_df[[c for c in display_cols if c in results_df.columns]]
+            st.dataframe(display_df, use_container_width=True, height=400)
         
         # Export options - Single download button
         st.subheader("📥 Export Results")
@@ -1316,51 +1364,46 @@ def main():
                 all_data.append([""])
                 all_data.append([""])
                 
-                # MIDDLE SECTION: Spending Categories
-                all_data.append(["Spending Category Breakdown"])
-                all_data.append(["Spending Category", "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
+                # MIDDLE SECTION: Hierarchical Spending Breakdown
+                all_data.append(["Hierarchical Spending Breakdown"])
+                all_data.append(["Spending Code", "Spending Description", 
+                               "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
                 
-                if 'category_results' in st.session_state and st.session_state.category_results is not None:
-                    category_results = st.session_state.category_results.copy()
-                    for _, row in category_results.iterrows():
+                # Use hierarchical structure if available
+                hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
+                hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
+                
+                if hierarchical_results_export:
+                    # Build hierarchical display with indentation
+                    for item in hierarchical_results_export:
+                        level = item['level']
+                        indent = "  " * level  # 2 spaces per level (matching Excel hierarchy)
+                        var_code = item['var_code']
+                        description = item['description']
+                        
                         all_data.append([
-                            row['Spending Category'],
+                            var_code,
+                            f"{indent}{description}",
+                            round(item['mean'], 2),
+                            round(item['variance'], 2),
+                            round(item['std_error'], 2),
+                            round(item['cv'], 2) if not pd.isna(item['cv']) else ""
+                        ])
+                else:
+                    # Fallback to original structure
+                    display_cols = ['Spending Code', 'Spending Description', 
+                                  'Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation']
+                    results_export = results_df[[c for c in display_cols if c in results_df.columns]].copy()
+                    
+                    for _, row in results_export.iterrows():
+                        all_data.append([
+                            row['Spending Code'],
+                            row['Spending Description'],
                             round(row['Mean Dollars Per Year'], 2),
                             round(row['Variance'], 2),
                             round(row['Standard Error'], 2),
                             round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else ""
                         ])
-                    
-                    # Add total row
-                    total_dollars = category_results['Mean Dollars Per Year'].sum()
-                    all_data.append(["TOTAL", round(total_dollars, 2), "", "", ""])
-                
-                all_data.append([""])
-                all_data.append([""])
-                
-                # BOTTOM SECTION: Individual Spending Codes
-                all_data.append(["Individual Spending Code Breakdown"])
-                all_data.append(["Spending Code", "Spending Description", "Spending Category", 
-                               "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
-                
-                display_cols = ['Spending Code', 'Spending Description', 'Spending Category', 
-                              'Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation']
-                results_export = results_df[[c for c in display_cols if c in results_df.columns]].copy()
-                
-                for _, row in results_export.iterrows():
-                    all_data.append([
-                        row['Spending Code'],
-                        row['Spending Description'],
-                        row['Spending Category'],
-                        round(row['Mean Dollars Per Year'], 2),
-                        round(row['Variance'], 2),
-                        round(row['Standard Error'], 2),
-                        round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else ""
-                    ])
-                
-                # Add total row
-                total_dollars_detail = results_export['Mean Dollars Per Year'].sum()
-                all_data.append(["TOTAL", "", "", round(total_dollars_detail, 2), "", "", ""])
                 
                 # Convert to DataFrame and write
                 export_df = pd.DataFrame(all_data)
@@ -1399,8 +1442,8 @@ def main():
                 cell_value = str(row[0].value) if row[0].value else ""
                 
                 # Format section headers
-                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Summary Statistics:", "Spending Category Breakdown", 
-                                                             "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
+                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Summary Statistics:", "Hierarchical Spending Breakdown", 
+                                                             "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
                 if is_header:
                     for cell in row:
                         cell.font = Font(bold=True, size=11)
