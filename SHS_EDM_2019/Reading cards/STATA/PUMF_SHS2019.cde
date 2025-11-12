@@ -1,0 +1,151 @@
+LABEL DEFINE V1_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V2_F
+     1     "Single detached"
+     2     "Double, row, terrace or duplex"
+     3     "Apartment or other"
+LABEL DEFINE V3_F
+     1     "Earnings (employment income)"
+     2     "Investment income"
+     3     "Government transfer payments"
+     4     "Other income"
+LABEL DEFINE V4_F
+     1     "1"
+     2     "2"
+     3     "3"
+     4     "4 or more"
+LABEL DEFINE V5_F
+     1     "One person household"
+     2     "Couple without children"
+     3     "Couple with children"
+     4     "Couple with other related or unrelated persons"
+     5     "Lone parent family with no additional persons"
+     6     "Other household with related or unrelated persons"
+LABEL DEFINE V6_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V7_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V8_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V9_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V10_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V11_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V12_F
+     1     "0 or 1"
+     2     "2"
+     3     "3"
+     4     "4 or more"
+     9     "Masked records (Prince Edward Island and the territorial capitals)"
+LABEL DEFINE V13_F
+     0     "0"
+     1     "1"
+     2     "2"
+     3     "3 or more"
+LABEL DEFINE V14_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V15_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V16_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V17_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V18_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V19_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V20_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V21_F
+     10     "Newfoundland and Labrador"
+     11     "Prince Edward Island"
+     12     "Nova Scotia"
+     13     "New Brunswick"
+     24     "Quebec"
+     35     "Ontario"
+     46     "Manitoba"
+     47     "Saskatchewan"
+     48     "Alberta"
+     59     "British Columbia"
+     63     "Territorial capitals"
+LABEL DEFINE V22_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V23_F
+     01     "Less than 30 years"
+     02     "30 to 39 years"
+     03     "40 to 54 years"
+     04     "55 to 64 years"
+     05     "65 to 74 years"
+     06     "75 years and over"
+LABEL DEFINE V24_F
+     1     "Less than high school diploma or its equivalent"
+     2     "High school diploma, high school equivalency certificate, or not stated"
+     3     "Certificate or diploma from a trades school, college, CEGEP or other non-university educational institution"
+     4     "University certificate or diploma"
+     9     "Masked records (Prince Edward Island and the territorial capitals)"
+LABEL DEFINE V25_F
+     1     "Male"
+     2     "Female"
+LABEL DEFINE V26_F
+     1     "Married or common-law"
+     2     "Single, never married"
+     3     "Separated, widowed or divorced"
+LABEL DEFINE V27_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V28_F
+     01     "Less than 30 years"
+     02     "30 to 39 years"
+     03     "40 to 54 years"
+     04     "55 to 64 years"
+     05     "65 to 74 years"
+     06     "75 years and over"
+     96     "No spouse"
+LABEL DEFINE V29_F
+     1     "Less than high school diploma or its equivalent"
+     2     "High school diploma, high school equivalency certificate, or not stated"
+     3     "Certificate or diploma from a trades school, college, CEGEP or other non-university educational institution"
+     4     "University certificate or diploma"
+     6     "No spouse"
+     9     "Masked records (Prince Edward Island and the territorial capitals)"
+LABEL DEFINE V30_F
+     1     "Male"
+     2     "Female"
+     6     "No spouse"
+LABEL DEFINE V31_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V32_F
+     1     "Owned with mortgage"
+     2     "Owned without mortgage"
+     3     "Rented"
+LABEL DEFINE V33_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V34_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V35_F
+     1     "Yes"
+     2     "No"
+LABEL DEFINE V36_F
+     1     "Yes"
+     2     "No"
+

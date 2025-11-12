@@ -1,0 +1,39 @@
+FORMAT;
+       ComputerYN          $V1_F.
+       DwelTyp          $V2_F.
+       HH_MajIncSrc          $V3_F.
+       HHSize          $V4_F.
+       HHType6          $V5_F.
+       IntCon_Cable          $V6_F.
+       IntCon_HSTel          $V7_F.
+       IntCon_Other          $V8_F.
+       IntCon_Wireless          $V9_F.
+       InternetYN          $V10_F.
+       LandlineYN          $V11_F.
+       NumBedr          $V12_F.
+       NumCell          $V13_F.
+       OthPropYN          $V14_F.
+       P0to4YN          $V15_F.
+       P16to29YN          $V16_F.
+       P30to64YN          $V17_F.
+       P5to15YN          $V18_F.
+       P65to74YN          $V19_F.
+       P75plusYN          $V20_F.
+       PROV          $V21_F.
+       RecVehYN          $V22_F.
+       RP_AgeGrp          $V23_F.
+       RP_EDUC          $V24_F.
+       RP_Gender          $V25_F.
+       RP_MARSTAT          $V26_F.
+       SecResYN          $V27_F.
+       SP_AgeGrp          $V28_F.
+       SP_Educ          $V29_F.
+       SP_Gender          $V30_F.
+       SpouseYN          $V31_F.
+       Tenure          $V32_F.
+       TVCon_Cable          $V33_F.
+       TVCon_Phone          $V34_F.
+       TVCon_SatDish          $V35_F.
+       VehicleYN          $V36_F.
+
+;

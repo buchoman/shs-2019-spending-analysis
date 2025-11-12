@@ -1,0 +1,189 @@
+VALUE LABELS
+ComputerYN
+    1     "Yes"
+    2     "No"
+/
+DwelTyp
+    1     "Single detached"
+    2     "Double, row, terrace or duplex"
+    3     "Apartment or other"
+/
+HH_MajIncSrc 
+    1     "Earnings (employment income)"
+    2     "Investment income"
+    3     "Government transfer payments"
+    4     "Other income"
+/
+HHSize
+    1     "1"
+    2     "2"
+    3     "3"
+    4     "4 or more"
+/
+HHType6
+    1     "One person household"
+    2     "Couple without children"
+    3     "Couple with children"
+    4     "Couple with other related or unrelated persons"
+    5     "Lone parent family with no additional persons"
+    6     "Other household with related or unrelated persons"
+/
+IntCon_Cable
+    1     "Yes"
+    2     "No"
+/
+IntCon_HSTel
+    1     "Yes"
+    2     "No"
+/
+IntCon_Other
+    1     "Yes"
+    2     "No"
+/
+IntCon_Wireless
+    1     "Yes"
+    2     "No"
+/
+InternetYN
+    1     "Yes"
+    2     "No"
+/
+LandlineYN
+    1     "Yes"
+    2     "No"
+/
+NumBedr
+    1     "0 or 1"
+    2     "2"
+    3     "3"
+    4     "4 or more"
+    9     "Masked records (Prince Edward Island and the territorial capitals)"
+/
+NumCell
+    0     "0"
+    1     "1"
+    2     "2"
+    3     "3 or more"
+/
+OthPropYN
+    1     "Yes"
+    2     "No"
+/
+P0to4YN
+    1     "Yes"
+    2     "No"
+/
+P16to29YN
+    1     "Yes"
+    2     "No"
+/
+P30to64YN
+    1     "Yes"
+    2     "No"
+/
+P5to15YN
+    1     "Yes"
+    2     "No"
+/
+P65to74YN
+    1     "Yes"
+    2     "No"
+/
+P75plusYN
+    1     "Yes"
+    2     "No"
+/
+PROV
+    10     "Newfoundland and Labrador"
+    11     "Prince Edward Island"
+    12     "Nova Scotia"
+    13     "New Brunswick"
+    24     "Quebec"
+    35     "Ontario"
+    46     "Manitoba"
+    47     "Saskatchewan"
+    48     "Alberta"
+    59     "British Columbia"
+    63     "Territorial capitals"
+/
+RecVehYN
+    1     "Yes"
+    2     "No"
+/
+RP_AgeGrp
+    01     "Less than 30 years"
+    02     "30 to 39 years"
+    03     "40 to 54 years"
+    04     "55 to 64 years"
+    05     "65 to 74 years"
+    06     "75 years and over"
+/
+RP_EDUC
+    1     "Less than high school diploma or its equivalent"
+    2     "High school diploma, high school equivalency certificate, or not stated"
+    3     "Certificate or diploma from a trades school, college, CEGEP or other non-university educational institution"
+    4     "University certificate or diploma"
+    9     "Masked records (Prince Edward Island and the territorial capitals)"
+/
+RP_Gender
+    1     "Male"
+    2     "Female"
+/
+RP_MARSTAT
+    1     "Married or common-law"
+    2     "Single, never married"
+    3     "Separated, widowed or divorced"
+/
+SecResYN
+    1     "Yes"
+    2     "No"
+/
+SP_AgeGrp
+    01     "Less than 30 years"
+    02     "30 to 39 years"
+    03     "40 to 54 years"
+    04     "55 to 64 years"
+    05     "65 to 74 years"
+    06     "75 years and over"
+    96     "No spouse"
+/
+SP_Educ
+    1     "Less than high school diploma or its equivalent"
+    2     "High school diploma, high school equivalency certificate, or not stated"
+    3     "Certificate or diploma from a trades school, college, CEGEP or other non-university educational institution"
+    4     "University certificate or diploma"
+    6     "No spouse"
+    9     "Masked records (Prince Edward Island and the territorial capitals)"
+/
+SP_Gender
+    1     "Male"
+    2     "Female"
+    6     "No spouse"
+/
+SpouseYN
+    1     "Yes"
+    2     "No"
+/
+Tenure
+    1     "Owned with mortgage"
+    2     "Owned without mortgage"
+    3     "Rented"
+/
+TVCon_Cable
+    1     "Yes"
+    2     "No"
+/
+TVCon_Phone
+    1     "Yes"
+    2     "No"
+/
+TVCon_SatDish
+    1     "Yes"
+    2     "No"
+/
+VehicleYN
+    1     "Yes"
+    2     "No"
+/
+
+.
