@@ -885,7 +885,7 @@ def organize_hierarchical_results(results_df, hierarchy_data):
                     'var_code': var_code,
                     'level': level,
                     'parent': node.get('parent'),
-                    'description': node.get('description', SPENDING_DESCRIPTIONS.get(var_code, var_code)),
+                    'description': SPENDING_DESCRIPTIONS.get(var_code, node.get('description', var_code)),
                     'mean': results_dict[var_code]['mean'],
                     'variance': results_dict[var_code]['variance'],
                     'std_error': results_dict[var_code]['std_error'],
@@ -1326,7 +1326,7 @@ def main():
                 std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
                 
                 node = var_to_node.get(level2_var, {})
-                description = node.get('description', SPENDING_DESCRIPTIONS.get(level2_var, level2_var))
+                description = SPENDING_DESCRIPTIONS.get(level2_var, node.get('description', level2_var))
                 
                 level2_totals.append({
                     'Spending Code': level2_var,
@@ -1420,41 +1420,6 @@ def main():
         setTimeout(alignNumericColumns, 500);
         </script>
         """, unsafe_allow_html=True)
-        
-        # Display summary statistics
-        if 'avg_household_income' in st.session_state:
-            st.subheader("📊 Summary Statistics")
-            summary_data = []
-            if not np.isnan(st.session_state.avg_household_income):
-                summary_data.append({
-                    'Metric': 'Average Household Income',
-                    'Value ($)': round(st.session_state.avg_household_income, 2),
-                    'Standard Error ($)': round(st.session_state.avg_income_se, 2) if not np.isnan(st.session_state.avg_income_se) else np.nan
-                })
-            if 'avg_current_consumption' in st.session_state and not np.isnan(st.session_state.avg_current_consumption):
-                summary_data.append({
-                    'Metric': 'Average Current Consumption',
-                    'Value ($)': round(st.session_state.avg_current_consumption, 2),
-                    'Standard Error ($)': round(st.session_state.avg_consumption_se, 2) if not np.isnan(st.session_state.avg_consumption_se) else np.nan
-                })
-            if summary_data:
-                summary_df = pd.DataFrame(summary_data)
-                st.dataframe(summary_df, use_container_width=True)
-        
-        # Display Level 2 category totals
-        if 'level2_totals' in st.session_state and st.session_state.level2_totals is not None:
-            st.subheader("📊 Level 2 Expenditure Categories")
-            level2_df = st.session_state.level2_totals.copy()
-            
-            # Round numeric columns
-            for col in numeric_cols:
-                if col in level2_df.columns:
-                    level2_df[col] = level2_df[col].round(2)
-            
-            # Reorder columns
-            display_cols = ['Spending Code', 'Spending Description'] + [c for c in level2_df.columns if c not in ['Spending Code', 'Spending Description']]
-            level2_df = level2_df[[c for c in display_cols if c in level2_df.columns]]
-            st.dataframe(level2_df, use_container_width=True, height=400)
         
         # Display by spending code with hierarchy
         st.subheader("By Spending Code (Hierarchical)")
@@ -1599,46 +1564,8 @@ def main():
                 all_data.append([""])
                 all_data.append(["Number of Records Matching Criteria:", st.session_state.get('filtered_count', 'N/A')])
                 
-                # Add summary statistics
-                if 'avg_household_income' in st.session_state:
-                    all_data.append([""])
-                    all_data.append(["Summary Statistics:"])
-                    all_data.append(["Metric", "Value ($)", "Standard Error ($)"])
-                    if not np.isnan(st.session_state.avg_household_income):
-                        all_data.append([
-                            "Average Household Income",
-                            round(st.session_state.avg_household_income, 2),
-                            round(st.session_state.avg_income_se, 2) if not np.isnan(st.session_state.avg_income_se) else ""
-                        ])
-                    if 'avg_current_consumption' in st.session_state and not np.isnan(st.session_state.avg_current_consumption):
-                        all_data.append([
-                            "Average Current Consumption",
-                            round(st.session_state.avg_current_consumption, 2),
-                            round(st.session_state.avg_consumption_se, 2) if not np.isnan(st.session_state.avg_consumption_se) else ""
-                        ])
-                
                 all_data.append([""])
                 all_data.append([""])
-                
-                # MIDDLE SECTION: Level 2 Category Totals
-                if 'level2_totals' in st.session_state and st.session_state.level2_totals is not None:
-                    all_data.append(["Level 2 Expenditure Categories"])
-                    all_data.append(["Spending Code", "Spending Description", 
-                                   "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
-                    
-                    level2_totals_export = st.session_state.level2_totals.copy()
-                    for _, row in level2_totals_export.iterrows():
-                        all_data.append([
-                            row['Spending Code'],
-                            row['Spending Description'],
-                            round(row['Mean Dollars Per Year'], 2),
-                            round(row['Variance'], 2),
-                            round(row['Standard Error'], 2),
-                            round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else ""
-                        ])
-                    
-                    all_data.append([""])
-                    all_data.append([""])
                 
                 # BOTTOM SECTION: Hierarchical Spending Breakdown
                 all_data.append(["Hierarchical Spending Breakdown"])
@@ -1718,7 +1645,7 @@ def main():
                 cell_value = str(row[0].value) if row[0].value else ""
                 
                 # Format section headers
-                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Summary Statistics:", "Level 2 Expenditure Categories", 
+                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", 
                                                              "Hierarchical Spending Breakdown", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
                 if is_header:
                     for cell in row:
