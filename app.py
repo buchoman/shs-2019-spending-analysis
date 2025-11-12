@@ -560,7 +560,9 @@ SPENDING_DESCRIPTIONS = {
     "TR070": "Public transportation",
     "TR071": "Vehicle operation, security and communication services",
     "TR085": "Public and private vehicle insurance premiums",
-    "TX010": "Income taxes"
+    "TX010": "Income taxes",
+    "TC001": "Total current consumption",
+    "TE001": "Total expenditure"
 }
 
 # Get all spending variables
@@ -728,14 +730,42 @@ def get_bootstrap_weights(df, df_bsw):
             return 0
     return df, sorted(bsw_cols, key=sort_key)
 
+def get_variable_value(df, var):
+    """Get the variable value, handling _C and _D versions.
+    If both _C and _D exist, sum them. Otherwise use the available version."""
+    var_c = var + '_C'
+    var_d = var + '_D'
+    
+    has_c = var_c in df.columns
+    has_d = var_d in df.columns
+    
+    if has_c and has_d:
+        # Both exist, sum them
+        return df[var_c].fillna(0) + df[var_d].fillna(0)
+    elif has_c:
+        # Only _C exists
+        return df[var_c]
+    elif has_d:
+        # Only _D exists
+        return df[var_d]
+    elif var in df.columns:
+        # Base variable exists (no _C or _D)
+        return df[var]
+    else:
+        # Variable doesn't exist
+        return pd.Series([np.nan] * len(df), index=df.index)
+
 def calculate_weighted_mean(df, var, weight_col='WeightD'):
-    """Calculate weighted mean for a variable"""
+    """Calculate weighted mean for a variable, handling _C and _D versions"""
+    # Get the variable value (handling _C and _D)
+    var_values = get_variable_value(df, var)
+    
     # Filter out missing values
-    mask = df[var].notna() & (df[weight_col] > 0)
+    mask = var_values.notna() & (df[weight_col] > 0)
     if mask.sum() == 0:
         return np.nan
     
-    weighted_sum = (df.loc[mask, var] * df.loc[mask, weight_col]).sum()
+    weighted_sum = (var_values.loc[mask] * df.loc[mask, weight_col]).sum()
     total_weight = df.loc[mask, weight_col].sum()
     
     if total_weight == 0:
@@ -744,12 +774,25 @@ def calculate_weighted_mean(df, var, weight_col='WeightD'):
     return weighted_sum / total_weight
 
 def calculate_bootstrap_variance(df, var, weight_col='WeightD', bootstrap_cols=None):
-    """Calculate bootstrap variance using bootstrap weights"""
+    """Calculate bootstrap variance using bootstrap weights, handling _C and _D versions"""
     if bootstrap_cols is None or len(bootstrap_cols) == 0:
         return np.nan
     
+    # Get variable values (handling _C and _D)
+    var_values = get_variable_value(df, var)
+    
     # Calculate estimate with main weight
-    main_estimate = calculate_weighted_mean(df, var, weight_col)
+    mask = var_values.notna() & (df[weight_col] > 0)
+    if mask.sum() == 0:
+        return np.nan
+    
+    weighted_sum = (var_values.loc[mask] * df.loc[mask, weight_col]).sum()
+    total_weight = df.loc[mask, weight_col].sum()
+    
+    if total_weight == 0:
+        return np.nan
+    
+    main_estimate = weighted_sum / total_weight
     
     if np.isnan(main_estimate):
         return np.nan
@@ -758,9 +801,14 @@ def calculate_bootstrap_variance(df, var, weight_col='WeightD', bootstrap_cols=N
     bootstrap_estimates = []
     for bs_col in bootstrap_cols:
         if bs_col in df.columns:
-            bs_estimate = calculate_weighted_mean(df, var, bs_col)
-            if not np.isnan(bs_estimate):
-                bootstrap_estimates.append(bs_estimate)
+            bs_mask = var_values.notna() & (df[bs_col] > 0)
+            if bs_mask.sum() > 0:
+                bs_weighted_sum = (var_values.loc[bs_mask] * df.loc[bs_mask, bs_col]).sum()
+                bs_total_weight = df.loc[bs_mask, bs_col].sum()
+                if bs_total_weight > 0:
+                    bs_estimate = bs_weighted_sum / bs_total_weight
+                    if not np.isnan(bs_estimate):
+                        bootstrap_estimates.append(bs_estimate)
     
     if len(bootstrap_estimates) == 0:
         return np.nan
@@ -1151,14 +1199,21 @@ def main():
         # These items are selected to balance with TC001 (Total Current Consumption)
         # Maximum level: 4 (as detailed as possible without going beyond Level 4)
         # Parent totals are excluded to avoid double-counting
+        # Handle _C and _D versions: check if base variable or _C/_D versions exist
+        def variable_exists(df, var):
+            """Check if variable exists in any form (base, _C, or _D)"""
+            return (var in df.columns or 
+                   (var + '_C') in df.columns or 
+                   (var + '_D') in df.columns)
+        
         available_spending_vars = [
             var for var in ALL_SPENDING_VARS 
-            if var in filtered_df.columns and var in ITEMS_FOR_TC001_BALANCE
+            if variable_exists(filtered_df, var) and var in ITEMS_FOR_TC001_BALANCE
         ]
         
         # Also include TC001 and TE001 if they exist in the data (even if not in ALL_SPENDING_VARS)
         for var in ["TC001", "TE001"]:
-            if var in filtered_df.columns and var not in available_spending_vars:
+            if variable_exists(filtered_df, var) and var not in available_spending_vars:
                 available_spending_vars.append(var)
         
         # Exclude parent totals to avoid double-counting
@@ -1228,7 +1283,7 @@ def main():
             level2_vars = level_vars.get('2', [])
             
             for level2_var in level2_vars:
-                if level2_var not in filtered_df.columns:
+                if not variable_exists(filtered_df, level2_var):
                     continue
                 
                 # Get all descendants of this Level 2 variable
@@ -1238,7 +1293,7 @@ def main():
                     node = var_to_node.get(var_code, {})
                     children = node.get('children', [])
                     for child in children:
-                        if child in available_spending_vars and child in filtered_df.columns:
+                        if child in available_spending_vars and variable_exists(filtered_df, child):
                             descendants.append(child)
                             # Recursively get descendants of children
                             descendants.extend(get_all_descendants(child, var_to_node))
@@ -1248,12 +1303,20 @@ def main():
                 
                 # If we have descendants, sum them; otherwise use the Level 2 variable itself
                 if len(descendants) > 0:
-                    # Sum all descendants
-                    filtered_df['_LEVEL2_SUM'] = filtered_df[descendants].sum(axis=1)
-                    mean_est = calculate_weighted_mean(filtered_df, '_LEVEL2_SUM')
-                    variance = calculate_bootstrap_variance(filtered_df, '_LEVEL2_SUM', bootstrap_cols=bootstrap_cols)
+                    # Sum all descendants (handling _C and _D versions)
+                    descendant_values = []
+                    for desc_var in descendants:
+                        desc_values = get_variable_value(filtered_df, desc_var)
+                        descendant_values.append(desc_values)
+                    
+                    if descendant_values:
+                        filtered_df['_LEVEL2_SUM'] = pd.concat(descendant_values, axis=1).sum(axis=1)
+                        mean_est = calculate_weighted_mean(filtered_df, '_LEVEL2_SUM')
+                        variance = calculate_bootstrap_variance(filtered_df, '_LEVEL2_SUM', bootstrap_cols=bootstrap_cols)
+                    else:
+                        continue
                 else:
-                    # Use the Level 2 variable directly if it exists in results
+                    # Use the Level 2 variable directly if it exists in results (handles _C and _D)
                     if level2_var in available_spending_vars:
                         mean_est = calculate_weighted_mean(filtered_df, level2_var)
                         variance = calculate_bootstrap_variance(filtered_df, level2_var, bootstrap_cols=bootstrap_cols)
@@ -1282,7 +1345,9 @@ def main():
         avg_income_variance = calculate_bootstrap_variance(filtered_df, 'HH_TotInc', bootstrap_cols=bootstrap_cols)
         avg_income_se = np.sqrt(avg_income_variance) if not np.isnan(avg_income_variance) else np.nan
         
-        if 'TC001' in filtered_df.columns:
+        # Calculate TC001 (Total Current Consumption) - handles _C and _D versions
+        tc001_values = get_variable_value(filtered_df, 'TC001')
+        if tc001_values.notna().any():
             avg_current_consumption = calculate_weighted_mean(filtered_df, 'TC001')
             avg_consumption_variance = calculate_bootstrap_variance(filtered_df, 'TC001', bootstrap_cols=bootstrap_cols)
             avg_consumption_se = np.sqrt(avg_consumption_variance) if not np.isnan(avg_consumption_variance) else np.nan
