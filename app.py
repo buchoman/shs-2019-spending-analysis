@@ -168,15 +168,39 @@ def format_value(var_name, value):
             return VALUE_LABELS[var_name][str_val]
     return str(value)
 
+# Parent/aggregate variables that should be excluded from category totals (to avoid double-counting)
+# These are totals that include their subcategories
+PARENT_TOTALS = {
+    "FD001",  # Food expenditures (parent of all FD variables)
+    "FD003",  # Food purchased from stores (parent of store food items)
+    "CS030",  # Communications (parent of CS003, CS004, CS005, etc.)
+    "HF001",  # Household furnishings and equipment (parent of HF002)
+    "HE001",  # Household equipment (parent of HE002, HE010, etc.)
+    "HC001",  # Health care (parent of HC002, HC022, etc.)
+    "HO001",  # Household operations (parent of HO002, HO003, etc.)
+    "PC001",  # Personal care (parent of PC002, PC020)
+    "RE001",  # Recreation (parent of RE002, RE003, etc.)
+    "RO001",  # Reading materials (parent of RO002, RO003, etc.)
+    "RV001",  # Recreational vehicles (parent of RV010, RV020)
+    "SH001",  # Shelter (parent of SH002, SH003, etc.)
+    "TR001",  # Transportation (parent of TR002, TR003, etc.)
+    "ME001",  # Miscellaneous expenditures (parent of ME039, ME040)
+    "TA018",  # Tobacco products, alcoholic beverages and cannabis (parent of TA005, TA006, TA007, TA008, TA990)
+    "TC001",  # Total current consumption (parent of all consumption)
+    "TE001"   # Total expenditure (parent of all expenditure)
+}
+
 # Spending category mappings (organized by major category prefix)
+# Excludes parent totals to avoid double-counting
 SPENDING_CATEGORIES = {
     "Child Care": ["CC001"],
     "Clothing": ["CL014", "CL015", "CL016", "CL017", "CL023", "CL026", "CL029", "CL030", "CL990"],
-    "Communications": ["CS003", "CS004", "CS005", "CS007", "CS008", "CS020", "CS021", "CS030"],
+    "Communications": ["CS003", "CS004", "CS005", "CS007", "CS008", "CS020", "CS021"],  # Excluded CS030 (parent)
     "Education": ["ED002", "ED003", "ED030"],
     "Personal Insurance": ["EP011"],
     "Food": [
-        "FD001", "FD003", "FD100", "FD1001", "FD1002", "FD1003", "FD1004", "FD101", "FD102", "FD103",
+        # Excluded FD001 (parent total) and FD003 (parent of store food)
+        "FD100", "FD1001", "FD1002", "FD1003", "FD1004", "FD101", "FD102", "FD103",
         "FD104", "FD105", "FD106", "FD107", "FD108", "FD112", "FD200", "FD201", "FD202", "FD203",
         "FD204", "FD205", "FD206", "FD207", "FD208", "FD209", "FD212", "FD300", "FD301", "FD302",
         "FD303", "FD304", "FD305", "FD308", "FD309", "FD315", "FD316", "FD330", "FD331", "FD350",
@@ -194,28 +218,31 @@ SPENDING_CATEGORIES = {
         "FD889", "FD990", "FD991", "FD992", "FD993", "FD994", "FD995"
     ],
     "Games of Chance": ["GC001"],
-    "Health Care": ["HC001", "HC002", "HC022", "HC025", "HC061"],
-    "Household Equipment": ["HE001", "HE002", "HE010", "HE017", "HE020"],
-    "Household Furnishings": ["HF001", "HF002"],
-    "Household Operations": ["HO001", "HO002", "HO003", "HO004", "HO005", "HO006", "HO010", "HO014", "HO018", "HO022"],
-    "Miscellaneous": ["ME001", "ME039", "ME040"],
+    "Health Care": ["HC002", "HC022", "HC025", "HC061"],  # Excluded HC001 (parent total)
+    "Household Equipment": ["HE002", "HE010", "HE017", "HE020"],  # Excluded HE001 (parent total)
+    "Household Furnishings": ["HF002"],  # Excluded HF001 (parent total)
+    "Household Operations": ["HO002", "HO003", "HO004", "HO005", "HO006", "HO010", "HO014", "HO018", "HO022"],  # Excluded HO001 (parent total)
+    "Miscellaneous": ["ME039", "ME040"],  # Excluded ME001 (parent total)
     "Gifts and Contributions": ["MG001"],
-    "Personal Care": ["PC001", "PC002", "PC020"],
+    "Personal Care": ["PC002", "PC020"],  # Excluded PC001 (parent total)
     "Recreation": [
-        "RE001", "RE002", "RE003", "RE006", "RE007", "RE010", "RE016", "RE020", "RE022", "RE032",
+        # Excluded RE001 (parent total)
+        "RE002", "RE003", "RE006", "RE007", "RE010", "RE016", "RE020", "RE022", "RE032",
         "RE040", "RE041", "RE052", "RE060", "RE061", "RE062", "RE063", "RE066", "RE067", "RE074",
         "RE090", "RE120", "RE124", "RE127", "RE140", "RE990"
     ],
-    "Reading Materials": ["RO001", "RO002", "RO003", "RO004", "RO005", "RO010"],
-    "Recreational Vehicles": ["RV001", "RV010", "RV020"],
+    "Reading Materials": ["RO002", "RO003", "RO004", "RO005", "RO010"],  # Excluded RO001 (parent total)
+    "Recreational Vehicles": ["RV010", "RV020"],  # Excluded RV001 (parent total)
     "Shelter": [
-        "SH001", "SH002", "SH003", "SH004", "SH010", "SH011", "SH015", "SH016", "SH019", "SH030",
+        # Excluded SH001, SH002 (parent totals)
+        "SH003", "SH004", "SH010", "SH011", "SH015", "SH016", "SH019", "SH030",
         "SH031", "SH032", "SH033", "SH034", "SH040", "SH041", "SH042", "SH044", "SH046", "SH047",
         "SH050", "SH060", "SH061", "SH062", "SH082", "SH990", "SH991", "SH992"
     ],
-    "Tobacco and Alcohol": ["TA005", "TA006", "TA007", "TA008", "TA018", "TA990"],
+    "Tobacco and Alcohol": ["TA005", "TA006", "TA007", "TA008", "TA990"],  # Excluded TA018 (parent total)
     "Transportation": [
-        "TR001", "TR002", "TR003", "TR004", "TR008", "TR010", "TR020", "TR021", "TR022", "TR030",
+        # Excluded TR001, TR002 (parent totals)
+        "TR003", "TR004", "TR008", "TR010", "TR020", "TR021", "TR022", "TR030",
         "TR031", "TR033", "TR034", "TR036", "TR038", "TR039", "TR070", "TR071", "TR085"
     ],
     "Income Taxes": ["TX010"]
@@ -741,6 +768,27 @@ def main():
             )
             if len(selected_tenure) > 0:
                 filters['Tenure'] = selected_tenure
+        
+        # Household Total Income Range Slider
+        if 'HH_TotInc' in df.columns:
+            st.markdown("---")
+            st.subheader("Household Total Income Range")
+            income_min = float(df['HH_TotInc'].min())
+            income_max = float(df['HH_TotInc'].max())
+            income_default_min = float(df['HH_TotInc'].quantile(0.25))
+            income_default_max = float(df['HH_TotInc'].quantile(0.75))
+            
+            income_range = st.slider(
+                "Total Household Income ($)",
+                min_value=int(income_min),
+                max_value=int(income_max),
+                value=(int(income_default_min), int(income_default_max)),
+                step=1000,
+                help="Select the minimum and maximum household income range. Drag the sliders to adjust."
+            )
+            st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
+        else:
+            income_range = None
     
     # MIDDLE COLUMN: Reference Person Demographics
     with col2:
@@ -800,27 +848,6 @@ def main():
             )
             if len(selected_inc) > 0:
                 filters['HH_MajIncSrc'] = selected_inc
-        
-        # Household Total Income Range Slider
-        if 'HH_TotInc' in df.columns:
-            st.markdown("---")
-            st.subheader("Household Total Income Range")
-            income_min = float(df['HH_TotInc'].min())
-            income_max = float(df['HH_TotInc'].max())
-            income_default_min = float(df['HH_TotInc'].quantile(0.25))
-            income_default_max = float(df['HH_TotInc'].quantile(0.75))
-            
-            income_range = st.slider(
-                "Total Household Income ($)",
-                min_value=int(income_min),
-                max_value=int(income_max),
-                value=(int(income_default_min), int(income_default_max)),
-                step=1000,
-                help="Select the minimum and maximum household income range. Drag the sliders to adjust."
-            )
-            st.info(f"Selected range: ${income_range[0]:,.0f} to ${income_range[1]:,.0f}")
-        else:
-            income_range = None
     
     # RIGHT COLUMN: Spouse, Children, Vehicles
     with col3:
