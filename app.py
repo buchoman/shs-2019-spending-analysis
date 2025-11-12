@@ -571,106 +571,35 @@ for category, vars_list in SPENDING_CATEGORIES.items():
     ALL_SPENDING_VARS.extend(vars_list)
 ALL_SPENDING_VARS = sorted(set(ALL_SPENDING_VARS))
 
-# Items to include for TC001 balance (maximum Level 4, as detailed as possible)
-# These items are selected to ensure the sum balances with TC001 (Total Current Consumption)
-# Strategy: Include Level 4 items where available, otherwise Level 3, otherwise Level 2
-# Parent totals are excluded to avoid double-counting
+# Items to include - only the 19 specified expenditure categories
+# These are Level 2 categories plus totals that should balance with TC001
 ITEMS_FOR_TC001_BALANCE = {
-    # Level 4 items (most detailed, where available)
-    "CL014",   # Clothing services (Level 4)
-    "CL015",   # Clothing services (Level 4)
-    "FD100",   # Bakery products (Level 4)
-    "FD200",   # Cereal grains and cereal products (Level 4)
-    "FD300",   # Fruit, fruit preparations and nuts (Level 4)
-    "FD400",   # Vegetables and vegetable preparations (Level 4)
-    "FD500",   # Dairy products and eggs (Level 4)
-    "FD600",   # Meat (Level 4)
-    "FD700",   # Fish and seafood (Level 4)
-    "FD800",   # Non-alcoholic beverages and other food products (Level 4)
-    "FD991",   # Restaurant meals (Level 4)
-    "FD995",   # Restaurant snacks and beverages (Level 4)
-    "HC025",   # Accident or disability insurance premiums (Level 4)
-    "HC061",   # Private health and dental plan premiums (Level 4)
-    "HO004",   # Pet food (Level 4)
-    "HO005",   # Purchase of pets and pet-related goods (Level 4)
-    "HO006",   # Veterinarian and other services (Level 4)
-    "RE006",   # Video game systems and accessories (Level 4)
-    "RE007",   # Art and craft materials (Level 4)
-    "RE010",   # Computer equipment and supplies (Level 4)
-    "RE016",   # Photographic goods and services (Level 4)
-    "RE022",   # Collectors' items (Level 4)
-    "RE032",   # Other recreational equipment (Level 4)
-    "RE041",   # Home entertainment equipment (Level 4)
-    "RE052",   # Home entertainment services (Level 4)
-    "RE061",   # Entertainment (Level 4)
-    "RE074",   # Package trips (Level 4)
-    "RE090",   # Use of recreational facilities and fees (Level 4)
-    "RE124",   # Sports, athletic and recreational equipment (Level 4)
-    "RE140",   # Other recreational services (Level 4)
-    "RE990",   # Outdoor play equipment and children's toys (Level 4)
-    "SH003",   # Rented living quarters (Level 4)
-    "SH010",   # Owned living quarters (Level 4)
-    "SH030",   # Water, fuel and electricity for principal accommodation (Level 4)
-    "SH041",   # Owned secondary residences (Level 4)
-    "SH047",   # Other owned properties (Level 4)
-    "SH050",   # Accommodation away from home (Level 4)
-    "TA006",   # Alcoholic beverages served on licensed premises (Level 4)
-    "TA007",   # Alcoholic beverages purchased from stores (Level 4)
-    "TA008",   # Self-made alcoholic beverages (Level 4)
-    "TR003",   # Private use automobiles, vans and trucks (Level 4)
-    "TR020",   # Rented automobiles, vans and trucks (Level 4)
-    "TR030",   # Automobile, van and truck operations (Level 4)
+    # Totals
+    "TE001",   # Total expenditure
+    "TC001",   # Total current consumption
     
-    # Level 3 items (where no Level 4 children exist)
-    "CL016",   # Clothing services (Level 3)
-    "CL017",   # Clothing material, yarn, thread and other notions (Level 3)
-    "CL023",   # Children's wear (under 14 years) (Level 3)
-    "CL026",   # Men's and boys' wear (14 years and over) (Level 3)
-    "CL990",   # Accessories, watches, jewellery and athletic footwear (Level 3)
-    "ED003",   # Tuition fees (Level 3)
-    "ED030",   # Textbooks and school supplies (Level 3)
-    "HC022",   # Private health insurance plan premiums (Level 3)
-    "HF002",   # Household furnishings (Level 3)
-    "HO003",   # Pet expenses (Level 3)
-    "HO010",   # Household cleaning supplies and equipment (Level 3)
-    "HO014",   # Paper, plastic and foil supplies (Level 3)
-    "HO018",   # Garden supplies and services (Level 3)
-    "HO022",   # Other household supplies (Level 3)
-    "ME039",   # Financial services (Level 3)
-    "ME040",   # Other miscellaneous goods and services (Level 3)
-    "PC002",   # Personal care products (Level 3)
-    "PC020",   # Personal care services (Level 3)
-    "RE040",   # Home entertainment equipment and services (Level 3)
-    "RE060",   # Recreational services (Level 3)
-    "RO002",   # Newspapers (Level 3)
-    "RO003",   # Magazines and periodicals (Level 3)
-    "RO004",   # Books and E-Books (excluding school books) (Level 3)
-    "RO005",   # Maps, sheet music and other printed matter (Level 3)
-    "RO010",   # Services related to reading materials (Level 3)
-    "SH040",   # Other accommodation (Level 3)
-    "TA005",   # Alcoholic beverages (Level 3)
-    "TR070",   # Public transportation (Level 3)
-    
-    # Level 2 items (where no Level 3 children exist)
-    "GC001",   # Games of chance (Level 2)
-    
-    # Totals (always include)
-    "TC001",   # Total Current Consumption
-    "TE001"    # Total Expenditure
+    # Level 2 expenditure categories
+    "FD001",   # Food expenditures
+    "SH001",   # Shelter
+    "HO001",   # Household operations
+    "HF001",   # Household furnishings and equipment
+    "CL030",   # Clothing and accessories
+    "TR001",   # Transportation
+    "HC001",   # Health care
+    "PC001",   # Personal care
+    "RE001",   # Recreation
+    "ED002",   # Education
+    "RO001",   # Reading materials and other printed matter
+    "TA018",   # Tobacco products, alcoholic beverages and cannabis for non-medical use
+    "GC001",   # Games of chance
+    "ME001",   # Miscellaneous expenditures
+    "TX010",   # Income taxes
+    "EP011",   # Personal insurance payments and pension contributions
+    "MG001"    # Gifts of money, support payments and charitable contributions
 }
 
-# Parent totals to exclude (these are sums of their children, avoid double-counting)
-PARENT_TOTALS_TO_EXCLUDE = {
-    "CL029",   # Women's and girls' wear (sum of CL014, CL015)
-    "FD003",   # Food purchased from stores (sum of FD100, FD200, FD300, FD400, FD500, FD600, FD700, FD800)
-    "FD990",   # Food purchased from restaurants (sum of FD991, FD995)
-    "HC002",   # Direct costs to household (sum of HC025, HC061)
-    "HO002",   # Domestic and other custodial services (sum of HO004, HO005, HO006)
-    "RE002",   # Recreational equipment and related services (sum of RE006, RE007, RE010, RE016, RE022, RE032, RE041, RE052, RE061, RE074, RE090, RE124, RE140, RE990)
-    "SH002",   # Principal accommodation (sum of SH003, SH010, SH030, SH041, SH047, SH050)
-    "TA990",   # Tobacco products, smokers' supplies and cannabis (sum of TA006, TA007, TA008)
-    "TR002"    # Private transportation (sum of TR003, TR020, TR030)
-}
+# No parent totals to exclude - we're using Level 2 categories directly
+PARENT_TOTALS_TO_EXCLUDE = set()
 
 # Load hierarchy structure
 @st.cache_data
@@ -1421,8 +1350,8 @@ def main():
         </script>
         """, unsafe_allow_html=True)
         
-        # Display by spending code with hierarchy
-        st.subheader("By Spending Code (Hierarchical)")
+        # Display by expenditure category
+        st.subheader("By Expenditure Category")
         # Organize results hierarchically
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
@@ -1567,8 +1496,8 @@ def main():
                 all_data.append([""])
                 all_data.append([""])
                 
-                # BOTTOM SECTION: Hierarchical Spending Breakdown
-                all_data.append(["Hierarchical Spending Breakdown"])
+                # BOTTOM SECTION: Expenditure Categories
+                all_data.append(["By Expenditure Category"])
                 all_data.append(["Spending Code", "Spending Description", 
                                "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
                 
@@ -1646,7 +1575,7 @@ def main():
                 
                 # Format section headers
                 is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", 
-                                                             "Hierarchical Spending Breakdown", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
+                                                             "By Expenditure Category", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
                 if is_header:
                     for cell in row:
                         cell.font = Font(bold=True, size=11)
