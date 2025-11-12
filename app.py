@@ -1098,7 +1098,65 @@ def main():
         progress_bar.empty()
         status_text.empty()
         
-        # Phase 2 complete (no summing - just display individual variables hierarchically)
+        # Phase 2: Calculate Level 2 category totals (30% of progress)
+        overall_status_text.text("Phase 2 of 2: Calculating Level 2 category totals...")
+        level2_totals = []
+        
+        if hierarchy_data:
+            var_to_node = hierarchy_data.get('var_to_node', {})
+            level_vars = hierarchy_data.get('level_vars', {})
+            
+            # Get Level 2 variables (main expenditure categories)
+            level2_vars = level_vars.get('2', [])
+            
+            for level2_var in level2_vars:
+                if level2_var not in filtered_df.columns:
+                    continue
+                
+                # Get all descendants of this Level 2 variable
+                def get_all_descendants(var_code, var_to_node):
+                    """Recursively get all descendant variable codes"""
+                    descendants = []
+                    node = var_to_node.get(var_code, {})
+                    children = node.get('children', [])
+                    for child in children:
+                        if child in available_spending_vars and child in filtered_df.columns:
+                            descendants.append(child)
+                            # Recursively get descendants of children
+                            descendants.extend(get_all_descendants(child, var_to_node))
+                    return descendants
+                
+                descendants = get_all_descendants(level2_var, var_to_node)
+                
+                # If we have descendants, sum them; otherwise use the Level 2 variable itself
+                if len(descendants) > 0:
+                    # Sum all descendants
+                    filtered_df['_LEVEL2_SUM'] = filtered_df[descendants].sum(axis=1)
+                    mean_est = calculate_weighted_mean(filtered_df, '_LEVEL2_SUM')
+                    variance = calculate_bootstrap_variance(filtered_df, '_LEVEL2_SUM', bootstrap_cols=bootstrap_cols)
+                else:
+                    # Use the Level 2 variable directly if it exists in results
+                    if level2_var in available_spending_vars:
+                        mean_est = calculate_weighted_mean(filtered_df, level2_var)
+                        variance = calculate_bootstrap_variance(filtered_df, level2_var, bootstrap_cols=bootstrap_cols)
+                    else:
+                        continue
+                
+                std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
+                
+                node = var_to_node.get(level2_var, {})
+                description = node.get('description', SPENDING_DESCRIPTIONS.get(level2_var, level2_var))
+                
+                level2_totals.append({
+                    'Spending Code': level2_var,
+                    'Spending Description': description,
+                    'Mean Dollars Per Year': mean_est,
+                    'Variance': variance,
+                    'Standard Error': std_error,
+                    'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+                })
+        
+        st.session_state.level2_totals = pd.DataFrame(level2_totals) if level2_totals else None
         overall_progress_bar.progress(1.0)
         
         # Calculate average household income and current consumption
@@ -1199,6 +1257,21 @@ def main():
             if summary_data:
                 summary_df = pd.DataFrame(summary_data)
                 st.dataframe(summary_df, use_container_width=True)
+        
+        # Display Level 2 category totals
+        if 'level2_totals' in st.session_state and st.session_state.level2_totals is not None:
+            st.subheader("📊 Level 2 Expenditure Categories")
+            level2_df = st.session_state.level2_totals.copy()
+            
+            # Round numeric columns
+            for col in numeric_cols:
+                if col in level2_df.columns:
+                    level2_df[col] = level2_df[col].round(2)
+            
+            # Reorder columns
+            display_cols = ['Spending Code', 'Spending Description'] + [c for c in level2_df.columns if c not in ['Spending Code', 'Spending Description']]
+            level2_df = level2_df[[c for c in display_cols if c in level2_df.columns]]
+            st.dataframe(level2_df, use_container_width=True, height=400)
         
         # Display by spending code with hierarchy
         st.subheader("By Spending Code (Hierarchical)")
@@ -1364,7 +1437,27 @@ def main():
                 all_data.append([""])
                 all_data.append([""])
                 
-                # MIDDLE SECTION: Hierarchical Spending Breakdown
+                # MIDDLE SECTION: Level 2 Category Totals
+                if 'level2_totals' in st.session_state and st.session_state.level2_totals is not None:
+                    all_data.append(["Level 2 Expenditure Categories"])
+                    all_data.append(["Spending Code", "Spending Description", 
+                                   "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
+                    
+                    level2_totals_export = st.session_state.level2_totals.copy()
+                    for _, row in level2_totals_export.iterrows():
+                        all_data.append([
+                            row['Spending Code'],
+                            row['Spending Description'],
+                            round(row['Mean Dollars Per Year'], 2),
+                            round(row['Variance'], 2),
+                            round(row['Standard Error'], 2),
+                            round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else ""
+                        ])
+                    
+                    all_data.append([""])
+                    all_data.append([""])
+                
+                # BOTTOM SECTION: Hierarchical Spending Breakdown
                 all_data.append(["Hierarchical Spending Breakdown"])
                 all_data.append(["Spending Code", "Spending Description", 
                                "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
@@ -1442,8 +1535,8 @@ def main():
                 cell_value = str(row[0].value) if row[0].value else ""
                 
                 # Format section headers
-                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Summary Statistics:", "Hierarchical Spending Breakdown", 
-                                                             "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
+                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Summary Statistics:", "Level 2 Expenditure Categories", 
+                                                             "Hierarchical Spending Breakdown", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
                 if is_header:
                     for cell in row:
                         cell.font = Font(bold=True, size=11)
