@@ -1109,205 +1109,223 @@ def main():
     if len(filtered_df) == 0:
         return
     
-    # Calculate estimates
-    if st.button("Calculate Estimates", type="primary"):
-        if len(bootstrap_cols) == 0:
-            st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
-            return
-        
-        # Ensure we're using the filtered data with income range
-        filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
-        
-        st.info(f"Using {len(bootstrap_cols)} bootstrap weights for variance estimation.")
-        
-        # Overall progress tracking
-        overall_progress_bar = st.progress(0)
-        overall_status_text = st.empty()
-        
-        # Phase 1: Calculate individual spending estimates (70% of progress)
-        overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
-        results = []
-        
-        # Get spending variables that exist in the data AND are in the TC001 balance set
-        # Check ITEMS_FOR_TC001_BALANCE directly (not filtered through ALL_SPENDING_VARS)
-        # Handle _C and _D versions: check if base variable or _C/_D versions exist
-        def variable_exists(df, var):
-            """Check if variable exists in any form (base, _C, or _D)"""
-            return (var in df.columns or 
-                   (var + '_C') in df.columns or 
-                   (var + '_D') in df.columns)
-        
-        # Check all items in ITEMS_FOR_TC001_BALANCE directly
-        available_spending_vars = [
-            var for var in ITEMS_FOR_TC001_BALANCE
-            if variable_exists(filtered_df, var)
-        ]
-        
-        # Exclude parent totals to avoid double-counting (should be empty set, but keeping for safety)
-        available_spending_vars = [
-            var for var in available_spending_vars 
-            if var not in PARENT_TOTALS_TO_EXCLUDE
-        ]
-        
-        if len(available_spending_vars) == 0:
-            st.error("No spending variables found in the dataset.")
-            overall_progress_bar.empty()
-            overall_status_text.empty()
-            return
-        
-        # Pre-build category lookup dictionary for faster lookups
-        var_to_category = {}
-        for cat, vars_list in SPENDING_CATEGORIES.items():
-            for var in vars_list:
-                var_to_category[var] = cat
-        
-        # Calculate for each spending variable (optimized with vectorized operations where possible)
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        total_vars = len(available_spending_vars)
-        
-        for idx, var in enumerate(available_spending_vars):
-            status_text.text(f"Processing {var} ({idx + 1}/{total_vars})...")
+    # Binary choice: Select calculation mode
+    st.markdown("**Select Calculation Mode:**")
+    calculation_mode = st.radio(
+        "Choose how to calculate spending estimates:",
+        ["Calculate for Specified Household Income Range", "Calculate by Income Quintile"],
+        horizontal=True,
+        key="calculation_mode",
+        help="Select 'Calculate for Specified Household Income Range' to analyze spending for a specific income range. Select 'Calculate by Income Quintile' to analyze spending across five income quintiles (this will override the income range filter)."
+    )
+    
+    st.markdown("---")
+    
+    # Calculate estimates based on selected mode
+    if calculation_mode == "Calculate for Specified Household Income Range":
+        # First button: Calculate for specified income range
+        if st.button("Calculate for Specified Household Income Range", type="primary", use_container_width=True):
+            if len(bootstrap_cols) == 0:
+                st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
+                return
             
-            mean_est = calculate_weighted_mean(filtered_df, var)
-            variance = calculate_bootstrap_variance(filtered_df, var, bootstrap_cols=bootstrap_cols)
-            std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
+            # Ensure we're using the filtered data with income range
+            filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
             
-            # Find category (using pre-built lookup)
-            category = var_to_category.get(var, "Other")
+            st.info(f"Using {len(bootstrap_cols)} bootstrap weights for variance estimation.")
             
-            # Get spending description
-            spending_desc = SPENDING_DESCRIPTIONS.get(var, "Spending description not available")
+            # Overall progress tracking
+            overall_progress_bar = st.progress(0)
+            overall_status_text = st.empty()
             
-            results.append({
-                'Spending Code': var,
-                'Spending Description': spending_desc,
-                'Spending Category': category,
-                'Mean Dollars Per Year': mean_est,
-                'Variance': variance,
-                'Standard Error': std_error,
-                'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
-            })
+            # Phase 1: Calculate individual spending estimates (70% of progress)
+            overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
+            results = []
             
-            # Update both progress bars
-            progress_bar.progress((idx + 1) / total_vars)
-            overall_progress_bar.progress(0.7 * (idx + 1) / total_vars)
-        
-        st.session_state.results = pd.DataFrame(results)
-        st.session_state.hierarchy_data = hierarchy_data  # Store hierarchy for later use
-        progress_bar.empty()
-        status_text.empty()
-        
-        # Phase 2: Calculate Level 2 category totals (30% of progress)
-        overall_status_text.text("Phase 2 of 2: Calculating Level 2 category totals...")
-        level2_totals = []
-        
-        if hierarchy_data:
-            var_to_node = hierarchy_data.get('var_to_node', {})
-            level_vars = hierarchy_data.get('level_vars', {})
+            # Get spending variables that exist in the data AND are in the TC001 balance set
+            # Check ITEMS_FOR_TC001_BALANCE directly (not filtered through ALL_SPENDING_VARS)
+            # Handle _C and _D versions: check if base variable or _C/_D versions exist
+            def variable_exists(df, var):
+                """Check if variable exists in any form (base, _C, or _D)"""
+                return (var in df.columns or 
+                       (var + '_C') in df.columns or 
+                       (var + '_D') in df.columns)
             
-            # Get Level 2 variables (main expenditure categories)
-            level2_vars = level_vars.get('2', [])
+            # Check all items in ITEMS_FOR_TC001_BALANCE directly
+            available_spending_vars = [
+                var for var in ITEMS_FOR_TC001_BALANCE
+                if variable_exists(filtered_df, var)
+            ]
             
-            for level2_var in level2_vars:
-                if not variable_exists(filtered_df, level2_var):
-                    continue
+            # Exclude parent totals to avoid double-counting (should be empty set, but keeping for safety)
+            available_spending_vars = [
+                var for var in available_spending_vars 
+                if var not in PARENT_TOTALS_TO_EXCLUDE
+            ]
+            
+            if len(available_spending_vars) == 0:
+                st.error("No spending variables found in the dataset.")
+                overall_progress_bar.empty()
+                overall_status_text.empty()
+                return
+            
+            # Pre-build category lookup dictionary for faster lookups
+            var_to_category = {}
+            for cat, vars_list in SPENDING_CATEGORIES.items():
+                for var in vars_list:
+                    var_to_category[var] = cat
+            
+            # Calculate for each spending variable (optimized with vectorized operations where possible)
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            total_vars = len(available_spending_vars)
+            
+            for idx, var in enumerate(available_spending_vars):
+                status_text.text(f"Processing {var} ({idx + 1}/{total_vars})...")
                 
-                # Get all descendants of this Level 2 variable
-                def get_all_descendants(var_code, var_to_node):
-                    """Recursively get all descendant variable codes"""
-                    descendants = []
-                    node = var_to_node.get(var_code, {})
-                    children = node.get('children', [])
-                    for child in children:
-                        if child in available_spending_vars and variable_exists(filtered_df, child):
-                            descendants.append(child)
-                            # Recursively get descendants of children
-                            descendants.extend(get_all_descendants(child, var_to_node))
-                    return descendants
-                
-                descendants = get_all_descendants(level2_var, var_to_node)
-                
-                # If we have descendants, sum them; otherwise use the Level 2 variable itself
-                if len(descendants) > 0:
-                    # Sum all descendants (handling _C and _D versions)
-                    descendant_values = []
-                    for desc_var in descendants:
-                        desc_values = get_variable_value(filtered_df, desc_var)
-                        descendant_values.append(desc_values)
-                    
-                    if descendant_values:
-                        filtered_df['_LEVEL2_SUM'] = pd.concat(descendant_values, axis=1).sum(axis=1)
-                        mean_est = calculate_weighted_mean(filtered_df, '_LEVEL2_SUM')
-                        variance = calculate_bootstrap_variance(filtered_df, '_LEVEL2_SUM', bootstrap_cols=bootstrap_cols)
-                    else:
-                        continue
-                else:
-                    # Use the Level 2 variable directly if it exists in results (handles _C and _D)
-                    if level2_var in available_spending_vars:
-                        mean_est = calculate_weighted_mean(filtered_df, level2_var)
-                        variance = calculate_bootstrap_variance(filtered_df, level2_var, bootstrap_cols=bootstrap_cols)
-                    else:
-                        continue
-                
+                mean_est = calculate_weighted_mean(filtered_df, var)
+                variance = calculate_bootstrap_variance(filtered_df, var, bootstrap_cols=bootstrap_cols)
                 std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
                 
-                node = var_to_node.get(level2_var, {})
-                description = SPENDING_DESCRIPTIONS.get(level2_var, node.get('description', level2_var))
+                # Find category (using pre-built lookup)
+                category = var_to_category.get(var, "Other")
                 
-                level2_totals.append({
-                    'Spending Code': level2_var,
-                    'Spending Description': description,
+                # Get spending description
+                spending_desc = SPENDING_DESCRIPTIONS.get(var, "Spending description not available")
+                
+                results.append({
+                    'Spending Code': var,
+                    'Spending Description': spending_desc,
+                    'Spending Category': category,
                     'Mean Dollars Per Year': mean_est,
                     'Variance': variance,
                     'Standard Error': std_error,
                     'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
                 })
-        
-        st.session_state.level2_totals = pd.DataFrame(level2_totals) if level2_totals else None
-        overall_progress_bar.progress(1.0)
-        
-        # Calculate average household income and current consumption
-        avg_household_income = calculate_weighted_mean(filtered_df, 'HH_TotInc')
-        avg_income_variance = calculate_bootstrap_variance(filtered_df, 'HH_TotInc', bootstrap_cols=bootstrap_cols)
-        avg_income_se = np.sqrt(avg_income_variance) if not np.isnan(avg_income_variance) else np.nan
-        
-        # Calculate TC001 (Total Current Consumption) - handles _C and _D versions
-        tc001_values = get_variable_value(filtered_df, 'TC001')
-        if tc001_values.notna().any():
-            avg_current_consumption = calculate_weighted_mean(filtered_df, 'TC001')
-            avg_consumption_variance = calculate_bootstrap_variance(filtered_df, 'TC001', bootstrap_cols=bootstrap_cols)
-            avg_consumption_se = np.sqrt(avg_consumption_variance) if not np.isnan(avg_consumption_variance) else np.nan
-        else:
-            avg_current_consumption = np.nan
-            avg_consumption_se = np.nan
-        
-        st.session_state.avg_household_income = avg_household_income
-        st.session_state.avg_income_se = avg_income_se
-        st.session_state.avg_current_consumption = avg_current_consumption
-        st.session_state.avg_consumption_se = avg_consumption_se
-        
-        overall_progress_bar.progress(1.0)
-        overall_progress_bar.empty()
-        overall_status_text.empty()
-        st.success("Calculations complete!")
-    
-    # Calculate by Income Quintile feature
-    st.markdown("---")
-    st.subheader("📊 Calculate by Income Quintile")
-    
-    if st.button("Calculate by Income Quintile", type="primary"):
-        if len(bootstrap_cols) == 0:
-            st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
-        else:
-            # Ensure we're using the filtered data with income range
-            filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
+                
+                # Update both progress bars
+                progress_bar.progress((idx + 1) / total_vars)
+                overall_progress_bar.progress(0.7 * (idx + 1) / total_vars)
             
-            if 'HH_TotInc' not in filtered_df.columns:
-                st.error("Household total income (HH_TotInc) not found in the dataset.")
+            st.session_state.results = pd.DataFrame(results)
+            st.session_state.hierarchy_data = hierarchy_data  # Store hierarchy for later use
+            progress_bar.empty()
+            status_text.empty()
+            
+            # Phase 2: Calculate Level 2 category totals (30% of progress)
+            overall_status_text.text("Phase 2 of 2: Calculating Level 2 category totals...")
+            level2_totals = []
+            
+            if hierarchy_data:
+                var_to_node = hierarchy_data.get('var_to_node', {})
+                level_vars = hierarchy_data.get('level_vars', {})
+                
+                # Get Level 2 variables (main expenditure categories)
+                level2_vars = level_vars.get('2', [])
+                
+                for level2_var in level2_vars:
+                    if not variable_exists(filtered_df, level2_var):
+                        continue
+                    
+                    # Get all descendants of this Level 2 variable
+                    def get_all_descendants(var_code, var_to_node):
+                        """Recursively get all descendant variable codes"""
+                        descendants = []
+                        node = var_to_node.get(var_code, {})
+                        children = node.get('children', [])
+                        for child in children:
+                            if child in available_spending_vars and variable_exists(filtered_df, child):
+                                descendants.append(child)
+                                # Recursively get descendants of children
+                                descendants.extend(get_all_descendants(child, var_to_node))
+                        return descendants
+                    
+                    descendants = get_all_descendants(level2_var, var_to_node)
+                    
+                    # If we have descendants, sum them; otherwise use the Level 2 variable itself
+                    if len(descendants) > 0:
+                        # Sum all descendants (handling _C and _D versions)
+                        descendant_values = []
+                        for desc_var in descendants:
+                            desc_values = get_variable_value(filtered_df, desc_var)
+                            descendant_values.append(desc_values)
+                        
+                        if descendant_values:
+                            filtered_df['_LEVEL2_SUM'] = pd.concat(descendant_values, axis=1).sum(axis=1)
+                            mean_est = calculate_weighted_mean(filtered_df, '_LEVEL2_SUM')
+                            variance = calculate_bootstrap_variance(filtered_df, '_LEVEL2_SUM', bootstrap_cols=bootstrap_cols)
+                        else:
+                            continue
+                    else:
+                        # Use the Level 2 variable directly if it exists in results (handles _C and _D)
+                        if level2_var in available_spending_vars:
+                            mean_est = calculate_weighted_mean(filtered_df, level2_var)
+                            variance = calculate_bootstrap_variance(filtered_df, level2_var, bootstrap_cols=bootstrap_cols)
+                        else:
+                            continue
+                    
+                    std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
+                    
+                    node = var_to_node.get(level2_var, {})
+                    description = SPENDING_DESCRIPTIONS.get(level2_var, node.get('description', level2_var))
+                    
+                    level2_totals.append({
+                        'Spending Code': level2_var,
+                        'Spending Description': description,
+                        'Mean Dollars Per Year': mean_est,
+                        'Variance': variance,
+                        'Standard Error': std_error,
+                        'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+                    })
+            
+            st.session_state.level2_totals = pd.DataFrame(level2_totals) if level2_totals else None
+            overall_progress_bar.progress(1.0)
+            
+            # Calculate average household income and current consumption
+            avg_household_income = calculate_weighted_mean(filtered_df, 'HH_TotInc')
+            avg_income_variance = calculate_bootstrap_variance(filtered_df, 'HH_TotInc', bootstrap_cols=bootstrap_cols)
+            avg_income_se = np.sqrt(avg_income_variance) if not np.isnan(avg_income_variance) else np.nan
+            
+            # Calculate TC001 (Total Current Consumption) - handles _C and _D versions
+            tc001_values = get_variable_value(filtered_df, 'TC001')
+            if tc001_values.notna().any():
+                avg_current_consumption = calculate_weighted_mean(filtered_df, 'TC001')
+                avg_consumption_variance = calculate_bootstrap_variance(filtered_df, 'TC001', bootstrap_cols=bootstrap_cols)
+                avg_consumption_se = np.sqrt(avg_consumption_variance) if not np.isnan(avg_consumption_variance) else np.nan
             else:
-                # Remove any income range filter for quintile calculation (use full filtered sample)
-                quintile_df = filtered_df.copy()
+                avg_current_consumption = np.nan
+                avg_consumption_se = np.nan
+            
+            st.session_state.avg_household_income = avg_household_income
+            st.session_state.avg_income_se = avg_income_se
+            st.session_state.avg_current_consumption = avg_current_consumption
+            st.session_state.avg_consumption_se = avg_consumption_se
+            
+            overall_progress_bar.progress(1.0)
+            overall_progress_bar.empty()
+            overall_status_text.empty()
+            st.success("Calculations complete!")
+            # Store calculation mode in session state
+            st.session_state.calculation_mode = "income_range"
+    
+    elif calculation_mode == "Calculate by Income Quintile":
+        # Second button: Calculate by income quintile
+        if st.button("Calculate by Income Quintile", type="primary", use_container_width=True):
+            if len(bootstrap_cols) == 0:
+                st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
+            else:
+                # For quintile calculation, ignore income range filter (use all filtered data)
+                # Income quintiles will be calculated from the filtered sample
+                filtered_df = filter_data(df, st.session_state.filters, income_range=None)
+                
+                # Store calculation mode in session state
+                st.session_state.calculation_mode = "quintile"
+                
+                if 'HH_TotInc' not in filtered_df.columns:
+                    st.error("Household total income (HH_TotInc) not found in the dataset.")
+                else:
+                    # Remove any income range filter for quintile calculation (use full filtered sample)
+                    quintile_df = filtered_df.copy()
                 
                 # Calculate income quintiles based on weighted percentiles
                 # Use weighted quantiles to determine quintile boundaries
@@ -1423,19 +1441,6 @@ def main():
                         # Store in session state
                         st.session_state.quintile_results = quintile_df_results
                         
-                        # Display quintile boundaries
-                        st.info(f"""
-                        **Income Quintile Boundaries:**
-                        - Quintile 1 (Lowest): ≤ ${quintile_boundaries[0]:,.0f}
-                        - Quintile 2: ${quintile_boundaries[0]:,.0f} - ${quintile_boundaries[1]:,.0f}
-                        - Quintile 3: ${quintile_boundaries[1]:,.0f} - ${quintile_boundaries[2]:,.0f}
-                        - Quintile 4: ${quintile_boundaries[2]:,.0f} - ${quintile_boundaries[3]:,.0f}
-                        - Quintile 5 (Highest): > ${quintile_boundaries[3]:,.0f}
-                        """)
-                        
-                        # Display results in a pivot table format
-                        st.subheader("Spending by Income Quintile")
-                        
                         # Calculate Total (all quintiles combined) for each variable
                         total_results = []
                         for var in available_spending_vars:
@@ -1526,10 +1531,13 @@ def main():
                             if 'Avg' in col or 'CV' in col:
                                 pivot_df[col] = pd.to_numeric(pivot_df[col], errors='coerce').round(2)
                         
-                        st.dataframe(pivot_df, use_container_width=True, height=600)
-                        
                         st.success(f"Calculated spending estimates for {len(available_spending_vars)} categories across 5 income quintiles.")
                         
+                        # Store quintile pivot table in session state for display
+                        st.session_state.quintile_pivot_df = pivot_df
+                        st.session_state.quintile_boundaries = quintile_boundaries
+                        
+                        # Note: Results will be displayed in the display section below
                         # Export quintile results to Excel
                         st.subheader("📥 Export Quintile Results")
                         try:
@@ -1764,8 +1772,11 @@ def main():
                     else:
                         st.warning("No results calculated. Please check your data filters.")
     
-    # Display results
-    if 'results' in st.session_state and st.session_state.results is not None:
+    # Display results based on calculation mode
+    calculation_mode_display = st.session_state.get('calculation_mode', None)
+    
+    # Show regular results only if calculation mode is income_range
+    if calculation_mode_display == "income_range" and 'results' in st.session_state and st.session_state.results is not None:
         results_df = st.session_state.results.copy()
         
         # Round numeric columns
@@ -2091,6 +2102,27 @@ def main():
             st.error(f"Error creating Excel file: {e}")
             import traceback
             st.text(traceback.format_exc())
+    
+    # Show quintile results only if calculation mode is quintile
+    elif calculation_mode_display == "quintile" and 'quintile_pivot_df' in st.session_state:
+        st.markdown("---")
+        st.subheader("📊 Spending by Income Quintile")
+        
+        # Display quintile boundaries
+        quintile_boundaries = st.session_state.get('quintile_boundaries', None)
+        if quintile_boundaries:
+            st.info(f"""
+            **Income Quintile Boundaries:**
+            - Quintile 1 (Lowest): ≤ ${quintile_boundaries[0]:,.0f}
+            - Quintile 2: ${quintile_boundaries[0]:,.0f} - ${quintile_boundaries[1]:,.0f}
+            - Quintile 3: ${quintile_boundaries[1]:,.0f} - ${quintile_boundaries[2]:,.0f}
+            - Quintile 4: ${quintile_boundaries[2]:,.0f} - ${quintile_boundaries[3]:,.0f}
+            - Quintile 5 (Highest): > ${quintile_boundaries[3]:,.0f}
+            """)
+        
+        # Display quintile results table
+        pivot_df = st.session_state.quintile_pivot_df
+        st.dataframe(pivot_df, use_container_width=True, height=600)
 
 if __name__ == "__main__":
     main()
