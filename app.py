@@ -1292,7 +1292,7 @@ def main():
     st.markdown("---")
     st.subheader("📊 Calculate by Income Quintile")
     
-    if st.button("Calculate by Income Quintile", type="secondary"):
+    if st.button("Calculate by Income Quintile", type="primary"):
         if len(bootstrap_cols) == 0:
             st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
         else:
@@ -1432,12 +1432,30 @@ def main():
                         # Display results in a pivot table format
                         st.subheader("Spending by Income Quintile")
                         
-                        # Create pivot table: rows = spending categories, columns = quintiles
+                        # Calculate Total (all quintiles combined) for each variable
+                        total_results = []
+                        for var in available_spending_vars:
+                            # Calculate weighted mean for all quintiles combined
+                            total_mean = calculate_weighted_mean(quintile_df, var)
+                            total_variance = calculate_bootstrap_variance(quintile_df, var, bootstrap_cols=bootstrap_cols)
+                            total_std_error = np.sqrt(total_variance) if not np.isnan(total_variance) else np.nan
+                            total_cv = (total_std_error / total_mean * 100) if not np.isnan(total_mean) and total_mean != 0 else np.nan
+                            
+                            total_results.append({
+                                'var': var,
+                                'total_avg': total_mean,
+                                'total_cv': total_cv
+                            })
+                        
+                        total_dict = {r['var']: {'avg': r['total_avg'], 'cv': r['total_cv']} for r in total_results}
+                        
+                        # Create pivot table: rows = spending categories, columns = quintiles + Total
                         pivot_data = []
                         for var in available_spending_vars:
                             var_desc = SPENDING_DESCRIPTIONS.get(var, var)
                             row = {'Spending Code': var, 'Spending Description': var_desc}
                             
+                            # Add quintile columns
                             for quintile in range(1, 6):
                                 quintile_data = quintile_df_results[
                                     (quintile_df_results['Spending Code'] == var) & 
@@ -1453,12 +1471,257 @@ def main():
                                     row[f'Q{quintile} Avg ($)'] = np.nan
                                     row[f'Q{quintile} CV (%)'] = np.nan
                             
+                            # Add Total column
+                            if var in total_dict:
+                                row['Total Avg ($)'] = total_dict[var]['avg']
+                                row['Total CV (%)'] = total_dict[var]['cv']
+                            else:
+                                row['Total Avg ($)'] = np.nan
+                                row['Total CV (%)'] = np.nan
+                            
                             pivot_data.append(row)
                         
                         pivot_df = pd.DataFrame(pivot_data)
+                        # Round numeric columns
+                        for col in pivot_df.columns:
+                            if 'Avg' in col or 'CV' in col:
+                                pivot_df[col] = pd.to_numeric(pivot_df[col], errors='coerce').round(2)
+                        
                         st.dataframe(pivot_df, use_container_width=True, height=600)
                         
                         st.success(f"Calculated spending estimates for {len(available_spending_vars)} categories across 5 income quintiles.")
+                        
+                        # Export quintile results to Excel
+                        st.subheader("📥 Export Quintile Results")
+                        try:
+                            from io import BytesIO
+                            from openpyxl import load_workbook
+                            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+                            from openpyxl.utils import get_column_letter
+                            
+                            output = BytesIO()
+                            
+                            # Get all available filter variables and their options
+                            all_filter_vars = {
+                                'PROV': get_unique_values(df, 'Prov'),
+                                'HHTYPE6': get_unique_values(df, 'HHType6'),
+                                'HHSIZE': get_unique_values(df, 'HHSize'),
+                                'DWELTYP': get_unique_values(df, 'DwellTyp'),
+                                'TENURE': get_unique_values(df, 'Tenure'),
+                                'RP_AGEGRP': get_unique_values(df, 'RP_AgeGrp'),
+                                'RP_GENDER': get_unique_values(df, 'RP_Gender'),
+                                'RP_MARSTAT': get_unique_values(df, 'RP_MarStat'),
+                                'RP_EDUC': get_unique_values(df, 'RP_Educ'),
+                                'SP_AGEGRP': get_unique_values(df, 'SP_AgeGrp'),
+                                'SP_EDUC': get_unique_values(df, 'SP_Educ'),
+                                'P0TO4YN': get_unique_values(df, 'P0to4YN'),
+                                'P5TO15YN': get_unique_values(df, 'P5to15YN'),
+                                'VEHICLEYN': get_unique_values(df, 'VehicleYN'),
+                                'HH_MAJINCSRC': get_unique_values(df, 'HH_MajIncSrc')
+                            }
+                            
+                            # Create Excel file
+                            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                all_data = []
+                                
+                                # TOP SECTION: Source and Filters
+                                all_data.append(["Survey of Household Spending 2019 - Spending Estimates by Income Quintile"])
+                                all_data.append([""])
+                                all_data.append(["Source:"])
+                                all_data.append(["Statistics Canada. Survey of Household Spending, 2019. " +
+                                                "Public Use Microdata File. Statistics Canada Catalogue no. 62M0004X. " +
+                                                "This does not constitute an endorsement by Statistics Canada of this product."])
+                                all_data.append([""])
+                                all_data.append(["Generated:", pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")])
+                                all_data.append([""])
+                                all_data.append(["Filter Criteria:"])
+                                all_data.append(["Variable", "Selected Value", "All Available Options"])
+                                
+                                # Add filter information
+                                filter_labels = {
+                                    'PROV': 'Province',
+                                    'HHTYPE6': 'Household type',
+                                    'HHSIZE': 'Household size',
+                                    'DWELTYP': 'Type of dwelling',
+                                    'TENURE': 'Dwelling tenure',
+                                    'RP_AGEGRP': 'Reference person - Age group',
+                                    'RP_GENDER': 'Reference person - Gender',
+                                    'RP_MARSTAT': 'Reference person - Marital status',
+                                    'RP_EDUC': 'Reference person - Education',
+                                    'SP_AGEGRP': 'Spouse - Age group',
+                                    'SP_EDUC': 'Spouse - Education',
+                                    'P0TO4YN': 'Presence of persons aged 0 to 4 years',
+                                    'P5TO15YN': 'Presence of persons aged 5 to 15 years',
+                                    'VEHICLEYN': 'Owned, leased or operated a vehicle',
+                                    'HH_MAJINCSRC': 'Household - Major source of income'
+                                }
+                                
+                                var_name_map = {
+                                    'PROV': 'Prov',
+                                    'HHTYPE6': 'HHType6',
+                                    'HHSIZE': 'HHSize',
+                                    'DWELTYP': 'DwellTyp',
+                                    'TENURE': 'Tenure',
+                                    'RP_AGEGRP': 'RP_AgeGrp',
+                                    'RP_GENDER': 'RP_Gender',
+                                    'RP_MARSTAT': 'RP_MarStat',
+                                    'RP_EDUC': 'RP_Educ',
+                                    'SP_AGEGRP': 'SP_AgeGrp',
+                                    'SP_EDUC': 'SP_Educ',
+                                    'P0TO4YN': 'P0to4YN',
+                                    'P5TO15YN': 'P5to15YN',
+                                    'VEHICLEYN': 'VehicleYN',
+                                    'HH_MAJINCSRC': 'HH_MajIncSrc'
+                                }
+                                
+                                for var, label in filter_labels.items():
+                                    if var in all_filter_vars and all_filter_vars[var]:
+                                        actual_var = var_name_map.get(var, var)
+                                        selected_val = st.session_state.filters.get(actual_var, None)
+                                        if selected_val is not None:
+                                            if isinstance(selected_val, list):
+                                                if len(selected_val) > 0:
+                                                    selected_labels = []
+                                                    for val in selected_val:
+                                                        lbl = format_value(var, val)
+                                                        selected_labels.append(f"{lbl} ({val})")
+                                                    selected_display = "; ".join(selected_labels)
+                                                else:
+                                                    selected_display = "All"
+                                            else:
+                                                selected_label = format_value(var, selected_val)
+                                                selected_display = f"{selected_label} ({selected_val})"
+                                        else:
+                                            selected_display = "All"
+                                        
+                                        options_list = []
+                                        for val in sorted(all_filter_vars[var]):
+                                            opt_label = format_value(var, val)
+                                            options_list.append(f"{opt_label} ({val})")
+                                        options_str = "; ".join(options_list[:10])
+                                        if len(options_list) > 10:
+                                            options_str += f"; ... ({len(options_list)} total options)"
+                                        
+                                        all_data.append([label, selected_display, options_str])
+                                
+                                # Add income range filter if applied
+                                if st.session_state.get('income_range') is not None:
+                                    income_range = st.session_state.income_range
+                                    all_data.append(["Household Total Income Range:", f"${income_range[0]:,.0f} to ${income_range[1]:,.0f}"])
+                                
+                                all_data.append([""])
+                                all_data.append(["Number of Records Matching Criteria:", st.session_state.get('filtered_count', 'N/A')])
+                                
+                                # Add quintile boundaries
+                                all_data.append([""])
+                                all_data.append(["Income Quintile Boundaries:"])
+                                all_data.append(["Quintile", "Income Range"])
+                                all_data.append(["Quintile 1 (Lowest)", f"≤ ${quintile_boundaries[0]:,.0f}"])
+                                all_data.append(["Quintile 2", f"${quintile_boundaries[0]:,.0f} - ${quintile_boundaries[1]:,.0f}"])
+                                all_data.append(["Quintile 3", f"${quintile_boundaries[1]:,.0f} - ${quintile_boundaries[2]:,.0f}"])
+                                all_data.append(["Quintile 4", f"${quintile_boundaries[2]:,.0f} - ${quintile_boundaries[3]:,.0f}"])
+                                all_data.append(["Quintile 5 (Highest)", f"> ${quintile_boundaries[3]:,.0f}"])
+                                
+                                all_data.append([""])
+                                all_data.append([""])
+                                
+                                # BOTTOM SECTION: Quintile Results
+                                all_data.append(["Spending by Income Quintile"])
+                                
+                                # Create header row
+                                header_row = ["Spending Code", "Spending Description"]
+                                for q in range(1, 6):
+                                    header_row.append(f"Q{q} Avg ($)")
+                                    header_row.append(f"Q{q} CV (%)")
+                                header_row.append("Total Avg ($)")
+                                header_row.append("Total CV (%)")
+                                all_data.append(header_row)
+                                
+                                # Add data rows
+                                for _, row in pivot_df.iterrows():
+                                    data_row = [
+                                        row['Spending Code'],
+                                        row['Spending Description']
+                                    ]
+                                    for q in range(1, 6):
+                                        avg_col = f'Q{q} Avg ($)'
+                                        cv_col = f'Q{q} CV (%)'
+                                        data_row.append(round(row[avg_col], 2) if pd.notna(row[avg_col]) else "")
+                                        data_row.append(round(row[cv_col], 2) if pd.notna(row[cv_col]) else "")
+                                    data_row.append(round(row['Total Avg ($)'], 2) if pd.notna(row['Total Avg ($)']) else "")
+                                    data_row.append(round(row['Total CV (%)'], 2) if pd.notna(row['Total CV (%)']) else "")
+                                    all_data.append(data_row)
+                                
+                                # Convert to DataFrame and write
+                                export_df = pd.DataFrame(all_data)
+                                export_df.to_excel(writer, sheet_name='Quintile Results', index=False, header=False)
+                            
+                            # Format the Excel file
+                            output.seek(0)
+                            wb = load_workbook(output)
+                            ws = wb['Quintile Results']
+                            
+                            # Set print area and page setup
+                            max_row = ws.max_row
+                            max_col = ws.max_column
+                            ws.print_area = f'A1:{get_column_letter(max_col)}{max_row}'
+                            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+                            ws.page_setup.fitToWidth = 1
+                            ws.page_setup.fitToHeight = 0
+                            
+                            # Style headers
+                            header_font = Font(bold=True, size=11)
+                            title_font = Font(bold=True, size=12)
+                            
+                            # Format title row
+                            ws['A1'].font = title_font
+                            ws.merge_cells(f'A1:{get_column_letter(max_col)}1')
+                            
+                            # Format section headers
+                            for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=max_row), 1):
+                                cell_value = str(row[0].value) if row[0].value else ""
+                                
+                                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Income Quintile Boundaries:", 
+                                                                                     "Spending by Income Quintile", "Household Total Income Range:"])
+                                if is_header:
+                                    for cell in row:
+                                        cell.font = Font(bold=True, size=11)
+                                        cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+                            
+                            # Auto-adjust column widths
+                            for col in ws.columns:
+                                max_length = 0
+                                col_letter = get_column_letter(col[0].column)
+                                for cell in col:
+                                    try:
+                                        if cell.value:
+                                            max_length = max(max_length, len(str(cell.value)))
+                                    except:
+                                        pass
+                                adjusted_width = min(max_length + 2, 50)
+                                ws.column_dimensions[col_letter].width = adjusted_width
+                            
+                            # Save formatted workbook
+                            output = BytesIO()
+                            wb.save(output)
+                            output.seek(0)
+                            excel_data = output.read()
+                            
+                            st.download_button(
+                                label="Download Quintile Results (Excel)",
+                                data=excel_data,
+                                file_name="spending_estimates_by_quintile.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="excel_quintile",
+                                type="primary",
+                                use_container_width=True
+                            )
+                        except ImportError:
+                            st.warning("Excel export requires openpyxl. Install with: pip install openpyxl")
+                        except Exception as e:
+                            st.error(f"Error creating Excel file: {e}")
+                            import traceback
+                            st.text(traceback.format_exc())
                     else:
                         st.warning("No results calculated. Please check your data filters.")
     
