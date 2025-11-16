@@ -1288,6 +1288,180 @@ def main():
         overall_status_text.empty()
         st.success("Calculations complete!")
     
+    # Calculate by Income Quintile feature
+    st.markdown("---")
+    st.subheader("📊 Calculate by Income Quintile")
+    
+    if st.button("Calculate by Income Quintile", type="secondary"):
+        if len(bootstrap_cols) == 0:
+            st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
+        else:
+            # Ensure we're using the filtered data with income range
+            filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
+            
+            if 'HH_TotInc' not in filtered_df.columns:
+                st.error("Household total income (HH_TotInc) not found in the dataset.")
+            else:
+                # Remove any income range filter for quintile calculation (use full filtered sample)
+                quintile_df = filtered_df.copy()
+                
+                # Calculate income quintiles based on weighted percentiles
+                # Use weighted quantiles to determine quintile boundaries
+                income_col = 'HH_TotInc'
+                weight_col = 'WeightD'
+                
+                # Filter out missing income values
+                valid_income = quintile_df[income_col].notna() & (quintile_df[weight_col] > 0)
+                quintile_df = quintile_df[valid_income].copy()
+                
+                if len(quintile_df) == 0:
+                    st.error("No valid income data found in the filtered sample.")
+                else:
+                    # Calculate weighted percentiles for quintile boundaries
+                    # Sort by income
+                    sorted_df = quintile_df.sort_values(income_col).copy()
+                    sorted_df['cumsum_weight'] = sorted_df[weight_col].cumsum()
+                    total_weight = sorted_df[weight_col].sum()
+                    
+                    # Find quintile boundaries (20th, 40th, 60th, 80th percentiles)
+                    quintile_boundaries = []
+                    for percentile in [20, 40, 60, 80]:
+                        target_weight = total_weight * (percentile / 100)
+                        # Find the index where cumulative weight reaches or exceeds target
+                        mask = sorted_df['cumsum_weight'] >= target_weight
+                        if mask.any():
+                            boundary_idx = mask.idxmax()
+                            boundary_value = sorted_df.loc[boundary_idx, income_col]
+                            quintile_boundaries.append(boundary_value)
+                        else:
+                            # If target weight is beyond all data, use max income
+                            quintile_boundaries.append(sorted_df[income_col].max())
+                    
+                    # Assign quintiles
+                    def assign_quintile(income):
+                        if pd.isna(income):
+                            return None
+                        if income <= quintile_boundaries[0]:
+                            return 1
+                        elif income <= quintile_boundaries[1]:
+                            return 2
+                        elif income <= quintile_boundaries[2]:
+                            return 3
+                        elif income <= quintile_boundaries[3]:
+                            return 4
+                        else:
+                            return 5
+                    
+                    quintile_df['Income_Quintile'] = quintile_df[income_col].apply(assign_quintile)
+                    
+                    # Get available spending variables
+                    def variable_exists(df, var):
+                        """Check if variable exists in any form (base, _C, or _D)"""
+                        return (var in df.columns or 
+                               (var + '_C') in df.columns or 
+                               (var + '_D') in df.columns)
+                    
+                    available_spending_vars = [
+                        var for var in ITEMS_FOR_TC001_BALANCE
+                        if variable_exists(quintile_df, var)
+                    ]
+                    
+                    # Calculate statistics for each quintile and each spending category
+                    quintile_results = []
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    total_calculations = len(available_spending_vars) * 5
+                    current_calc = 0
+                    
+                    for var in available_spending_vars:
+                        var_desc = SPENDING_DESCRIPTIONS.get(var, var)
+                        
+                        for quintile in range(1, 6):
+                            current_calc += 1
+                            status_text.text(f"Processing {var} - Quintile {quintile} ({current_calc}/{total_calculations})...")
+                            progress_bar.progress(current_calc / total_calculations)
+                            
+                            # Filter to this quintile
+                            quintile_data = quintile_df[quintile_df['Income_Quintile'] == quintile]
+                            
+                            if len(quintile_data) == 0:
+                                continue
+                            
+                            # Calculate weighted mean
+                            mean_est = calculate_weighted_mean(quintile_data, var)
+                            
+                            # Calculate bootstrap variance
+                            variance = calculate_bootstrap_variance(quintile_data, var, bootstrap_cols=bootstrap_cols)
+                            std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
+                            
+                            # Calculate CV (Coefficient of Variation)
+                            cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+                            
+                            quintile_results.append({
+                                'Spending Code': var,
+                                'Spending Description': var_desc,
+                                'Income Quintile': quintile,
+                                'Average ($)': mean_est,
+                                'Coefficient of Variation (%)': cv
+                            })
+                    
+                    progress_bar.empty()
+                    status_text.empty()
+                    
+                    if quintile_results:
+                        quintile_df_results = pd.DataFrame(quintile_results)
+                        
+                        # Round numeric columns
+                        quintile_df_results['Average ($)'] = quintile_df_results['Average ($)'].round(2)
+                        quintile_df_results['Coefficient of Variation (%)'] = quintile_df_results['Coefficient of Variation (%)'].round(2)
+                        
+                        # Store in session state
+                        st.session_state.quintile_results = quintile_df_results
+                        
+                        # Display quintile boundaries
+                        st.info(f"""
+                        **Income Quintile Boundaries:**
+                        - Quintile 1 (Lowest): ≤ ${quintile_boundaries[0]:,.0f}
+                        - Quintile 2: ${quintile_boundaries[0]:,.0f} - ${quintile_boundaries[1]:,.0f}
+                        - Quintile 3: ${quintile_boundaries[1]:,.0f} - ${quintile_boundaries[2]:,.0f}
+                        - Quintile 4: ${quintile_boundaries[2]:,.0f} - ${quintile_boundaries[3]:,.0f}
+                        - Quintile 5 (Highest): > ${quintile_boundaries[3]:,.0f}
+                        """)
+                        
+                        # Display results in a pivot table format
+                        st.subheader("Spending by Income Quintile")
+                        
+                        # Create pivot table: rows = spending categories, columns = quintiles
+                        pivot_data = []
+                        for var in available_spending_vars:
+                            var_desc = SPENDING_DESCRIPTIONS.get(var, var)
+                            row = {'Spending Code': var, 'Spending Description': var_desc}
+                            
+                            for quintile in range(1, 6):
+                                quintile_data = quintile_df_results[
+                                    (quintile_df_results['Spending Code'] == var) & 
+                                    (quintile_df_results['Income Quintile'] == quintile)
+                                ]
+                                
+                                if len(quintile_data) > 0:
+                                    avg = quintile_data.iloc[0]['Average ($)']
+                                    cv = quintile_data.iloc[0]['Coefficient of Variation (%)']
+                                    row[f'Q{quintile} Avg ($)'] = avg
+                                    row[f'Q{quintile} CV (%)'] = cv
+                                else:
+                                    row[f'Q{quintile} Avg ($)'] = np.nan
+                                    row[f'Q{quintile} CV (%)'] = np.nan
+                            
+                            pivot_data.append(row)
+                        
+                        pivot_df = pd.DataFrame(pivot_data)
+                        st.dataframe(pivot_df, use_container_width=True, height=600)
+                        
+                        st.success(f"Calculated spending estimates for {len(available_spending_vars)} categories across 5 income quintiles.")
+                    else:
+                        st.warning("No results calculated. Please check your data filters.")
+    
     # Display results
     if 'results' in st.session_state and st.session_state.results is not None:
         results_df = st.session_state.results.copy()
