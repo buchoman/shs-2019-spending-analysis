@@ -829,7 +829,11 @@ def build_hierarchical_display(hierarchical_results, var_to_node):
     
     for item in hierarchical_results:
         level = int(item['level']) if item.get('level') is not None else 0
-        indent = "  " * level  # 2 spaces per level
+        # Apply indentation: Level 0 and 1 = no indent, Level 2+ = 2 spaces
+        if level >= 2:
+            indent = "  "  # 2 spaces for Level 2
+        else:
+            indent = ""  # No indent for Level 0 and 1
         var_code = item['var_code']
         description = item['description']
         
@@ -1449,11 +1453,46 @@ def main():
                         
                         total_dict = {r['var']: {'avg': r['total_avg'], 'cv': r['total_cv']} for r in total_results}
                         
+                        # Order variables using the same hierarchy ordering as regular output
+                        ordered_vars = []
+                        if hierarchy_data:
+                            var_to_node = hierarchy_data.get('var_to_node', {})
+                            level_vars = hierarchy_data.get('level_vars', {})
+                            
+                            # Get variables in hierarchy order (by level, maintaining file order)
+                            for level in sorted(level_vars.keys()):
+                                vars_at_level = level_vars[level]
+                                for var_code in vars_at_level:
+                                    if var_code in available_spending_vars:
+                                        ordered_vars.append(var_code)
+                        else:
+                            # Fallback: use the order from ITEMS_FOR_TC001_BALANCE
+                            ordered_vars = [var for var in ITEMS_FOR_TC001_BALANCE if var in available_spending_vars]
+                        
                         # Create pivot table: rows = spending categories, columns = quintiles + Total
+                        # Use same ordering and indentation as regular output
                         pivot_data = []
-                        for var in available_spending_vars:
+                        for var in ordered_vars:
+                            # Get level for indentation
+                            level = 0
+                            if hierarchy_data:
+                                var_to_node = hierarchy_data.get('var_to_node', {})
+                                node = var_to_node.get(var, {})
+                                level = int(node.get('level', 0)) if node.get('level') is not None else 0
+                            
+                            # Apply indentation: Level 0 and 1 = no indent, Level 2+ = 2 spaces
+                            # This matches the regular output format
+                            if level >= 2:
+                                indent = "  "  # 2 spaces for Level 2
+                            else:
+                                indent = ""  # No indent for Level 0 and 1
                             var_desc = SPENDING_DESCRIPTIONS.get(var, var)
-                            row = {'Spending Code': var, 'Spending Description': var_desc}
+                            
+                            row = {
+                                'Spending Code': var, 
+                                'Spending Description': f"{indent}{var_desc}",
+                                'Level': level  # Store level for sorting
+                            }
                             
                             # Add quintile columns
                             for quintile in range(1, 6):
@@ -1637,11 +1676,11 @@ def main():
                                 header_row.append("Total CV (%)")
                                 all_data.append(header_row)
                                 
-                                # Add data rows
+                                # Add data rows (using same ordering as display)
                                 for _, row in pivot_df.iterrows():
                                     data_row = [
                                         row['Spending Code'],
-                                        row['Spending Description']
+                                        row['Spending Description']  # Already has indentation
                                     ]
                                     for q in range(1, 6):
                                         avg_col = f'Q{q} Avg ($)'
@@ -1940,7 +1979,11 @@ def main():
                     # Build hierarchical display with indentation
                     for item in hierarchical_results_export:
                         level = int(item['level']) if item.get('level') is not None else 0
-                        indent = "  " * level  # 2 spaces per level (matching Excel hierarchy)
+                        # Apply indentation: Level 0 and 1 = no indent, Level 2+ = 2 spaces
+                        if level >= 2:
+                            indent = "  "  # 2 spaces for Level 2
+                        else:
+                            indent = ""  # No indent for Level 0 and 1
                         var_code = item['var_code']
                         description = item['description']
                         
