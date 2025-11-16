@@ -748,6 +748,49 @@ def calculate_bootstrap_variance(df, var, weight_col='WeightD', bootstrap_cols=N
     
     return variance
 
+def calculate_sample_size(df, var, weight_col='WeightD'):
+    """Calculate sample size (n) - number of non-missing observations for a variable, handling _C and _D versions"""
+    var_values = get_variable_value(df, var)
+    
+    # Count non-missing observations (where variable has a value and weight > 0)
+    mask = var_values.notna() & (df[weight_col] > 0)
+    n = mask.sum()
+    
+    return n
+
+def determine_data_quality_category(cv, n=None, region=None):
+    """
+    Determine data quality release category (A, E, or F) based on CV, sample size, and region.
+    
+    According to PUMF User Guide (pages 21-23):
+    - Category A (Acceptable): CV <= 16.5%, can be released without restrictions
+    - Category E (Marginal): 16.5% < CV <= 33.3%, can be released with warning about high sampling variability
+    - Category F (Unacceptable): CV > 33.3%, should not be released
+    
+    Additional considerations may apply based on sample size and region.
+    """
+    if np.isnan(cv) or cv is None:
+        return 'F'  # Unacceptable if CV cannot be calculated
+    
+    # Primary classification based on CV thresholds
+    if cv <= 16.5:
+        quality_category = 'A'
+    elif cv <= 33.3:
+        quality_category = 'E'
+    else:
+        quality_category = 'F'
+    
+    # Additional checks based on sample size (if very small sample, may downgrade)
+    # Note: These thresholds may need adjustment based on specific PUMF guide requirements
+    if n is not None and n < 10:
+        # Very small sample sizes may be downgraded
+        if quality_category == 'A':
+            quality_category = 'E'  # Downgrade A to E for very small samples
+        elif quality_category == 'E':
+            quality_category = 'F'  # Downgrade E to F for very small samples
+    
+    return quality_category
+
 def filter_data(df, filters, income_range=None):
     """Apply filters to the dataset"""
     filtered_df = df.copy()
@@ -800,7 +843,9 @@ def organize_hierarchical_results(results_df, hierarchy_data):
             'mean': row['Mean Dollars Per Year'],
             'variance': row['Variance'],
             'std_error': row['Standard Error'],
-            'cv': row['Coefficient of Variation']
+            'cv': row['Coefficient of Variation'],
+            'n': row.get('Sample Size (n)', np.nan),
+            'quality': row.get('Data Quality Category', 'F')
         }
     
     # Get all variables in hierarchy order (by level, maintaining file order)
@@ -818,7 +863,9 @@ def organize_hierarchical_results(results_df, hierarchy_data):
                     'mean': results_dict[var_code]['mean'],
                     'variance': results_dict[var_code]['variance'],
                     'std_error': results_dict[var_code]['std_error'],
-                    'cv': results_dict[var_code]['cv']
+                    'cv': results_dict[var_code]['cv'],
+                    'n': results_dict[var_code]['n'],
+                    'quality': results_dict[var_code]['quality']
                 })
     
     return hierarchical_results, var_to_node
@@ -844,7 +891,9 @@ def build_hierarchical_display(hierarchical_results, var_to_node):
             'Mean Dollars Per Year': item['mean'],
             'Variance': item['variance'],
             'Standard Error': item['std_error'],
-            'Coefficient of Variation': item['cv']
+            'Coefficient of Variation': item['cv'],
+            'Sample Size (n)': item.get('n', np.nan),
+            'Data Quality Category': item.get('quality', 'F')
         })
     
     return pd.DataFrame(display_rows)
@@ -1185,6 +1234,21 @@ def main():
             variance = calculate_bootstrap_variance(filtered_df, var, bootstrap_cols=bootstrap_cols)
             std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
             
+            # Calculate CV
+            cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+            
+            # Calculate sample size (n)
+            n = calculate_sample_size(filtered_df, var)
+            
+            # Get region information if available
+            region = None
+            if 'PROV' in filtered_df.columns:
+                # Get the most common province in filtered data (or could use a different logic)
+                region = filtered_df['PROV'].mode().iloc[0] if len(filtered_df['PROV'].mode()) > 0 else None
+            
+            # Determine data quality category
+            quality_category = determine_data_quality_category(cv, n=n, region=region)
+            
             # Find category (using pre-built lookup)
             category = var_to_category.get(var, "Other")
             
@@ -1198,7 +1262,9 @@ def main():
                 'Mean Dollars Per Year': mean_est,
                 'Variance': variance,
                 'Standard Error': std_error,
-                'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+                'Coefficient of Variation': cv,
+                'Sample Size (n)': n,
+                'Data Quality Category': quality_category
             })
             
             # Update both progress bars
@@ -1264,6 +1330,33 @@ def main():
                 
                 std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
                 
+                # Calculate CV
+                cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+                
+                # Calculate sample size (n) - for Level 2, use the variable directly or sum of descendants
+                if len(descendants) > 0:
+                    # For summed variables, count observations where at least one descendant has a value
+                    descendant_values = []
+                    for desc_var in descendants:
+                        desc_values = get_variable_value(filtered_df, desc_var)
+                        descendant_values.append(desc_values)
+                    if descendant_values:
+                        combined_values = pd.concat(descendant_values, axis=1).sum(axis=1)
+                        n = (combined_values.notna() & (filtered_df['WeightD'] > 0)).sum()
+                    else:
+                        n = 0
+                else:
+                    # Use the Level 2 variable directly
+                    n = calculate_sample_size(filtered_df, level2_var)
+                
+                # Get region information if available
+                region = None
+                if 'PROV' in filtered_df.columns:
+                    region = filtered_df['PROV'].mode().iloc[0] if len(filtered_df['PROV'].mode()) > 0 else None
+                
+                # Determine data quality category
+                quality_category = determine_data_quality_category(cv, n=n, region=region)
+                
                 node = var_to_node.get(level2_var, {})
                 description = SPENDING_DESCRIPTIONS.get(level2_var, node.get('description', level2_var))
                 
@@ -1273,7 +1366,9 @@ def main():
                     'Mean Dollars Per Year': mean_est,
                     'Variance': variance,
                     'Standard Error': std_error,
-                    'Coefficient of Variation': (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
+                    'Coefficient of Variation': cv,
+                    'Sample Size (n)': n,
+                    'Data Quality Category': quality_category
                 })
         
         st.session_state.level2_totals = pd.DataFrame(level2_totals) if level2_totals else None
@@ -1416,12 +1511,25 @@ def main():
                             # Calculate CV (Coefficient of Variation)
                             cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
                             
+                            # Calculate sample size (n)
+                            n = calculate_sample_size(quintile_data, var)
+                            
+                            # Get region information if available
+                            region = None
+                            if 'PROV' in quintile_data.columns:
+                                region = quintile_data['PROV'].mode().iloc[0] if len(quintile_data['PROV'].mode()) > 0 else None
+                            
+                            # Determine data quality category
+                            quality_category = determine_data_quality_category(cv, n=n, region=region)
+                            
                             quintile_results.append({
                                 'Spending Code': var,
                                 'Spending Description': var_desc,
                                 'Income Quintile': quintile,
                                 'Average ($)': mean_est,
-                                'Coefficient of Variation (%)': cv
+                                'Coefficient of Variation (%)': cv,
+                                'Sample Size (n)': n,
+                                'Data Quality Category': quality_category
                             })
                     
                     progress_bar.empty()
@@ -1505,11 +1613,17 @@ def main():
                                 if len(quintile_data) > 0:
                                     avg = quintile_data.iloc[0]['Average ($)']
                                     cv = quintile_data.iloc[0]['Coefficient of Variation (%)']
+                                    n = quintile_data.iloc[0].get('Sample Size (n)', np.nan)
+                                    quality = quintile_data.iloc[0].get('Data Quality Category', 'F')
                                     row[f'Q{quintile} Avg ($)'] = avg
                                     row[f'Q{quintile} CV (%)'] = cv
+                                    row[f'Q{quintile} n'] = n
+                                    row[f'Q{quintile} Quality'] = quality
                                 else:
                                     row[f'Q{quintile} Avg ($)'] = np.nan
                                     row[f'Q{quintile} CV (%)'] = np.nan
+                                    row[f'Q{quintile} n'] = np.nan
+                                    row[f'Q{quintile} Quality'] = 'F'
                             
                             # Add Total column
                             if var in total_dict:
@@ -1526,6 +1640,9 @@ def main():
                         for col in pivot_df.columns:
                             if 'Avg' in col or 'CV' in col:
                                 pivot_df[col] = pd.to_numeric(pivot_df[col], errors='coerce').round(2)
+                            elif 'n' in col and col != 'Spending Description':
+                                # Round sample size to integer
+                                pivot_df[col] = pd.to_numeric(pivot_df[col], errors='coerce').fillna(0).astype(int)
                         
                         st.success(f"Calculated spending estimates for {len(available_spending_vars)} categories across 5 income quintiles.")
                         
@@ -1976,7 +2093,8 @@ def main():
                 # BOTTOM SECTION: Expenditure Categories
                 all_data.append(["By Expenditure Category"])
                 all_data.append(["Spending Code", "Spending Description", 
-                               "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)"])
+                               "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)",
+                               "Sample Size (n)", "Data Quality Category"])
                 
                 # Use hierarchical structure if available
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
@@ -1994,18 +2112,30 @@ def main():
                         var_code = item['var_code']
                         description = item['description']
                         
+                        # Get sample size and quality category from results_df
+                        n = np.nan
+                        quality = 'F'
+                        if 'Sample Size (n)' in results_df.columns and 'Data Quality Category' in results_df.columns:
+                            var_row = results_df[results_df['Spending Code'] == var_code]
+                            if len(var_row) > 0:
+                                n = var_row.iloc[0]['Sample Size (n)']
+                                quality = var_row.iloc[0]['Data Quality Category']
+                        
                         all_data.append([
                             var_code,
                             f"{indent}{description}",
                             round(item['mean'], 2),
                             round(item['variance'], 2),
                             round(item['std_error'], 2),
-                            round(item['cv'], 2) if not pd.isna(item['cv']) else ""
+                            round(item['cv'], 2) if not pd.isna(item['cv']) else "",
+                            int(n) if not pd.isna(n) else "",
+                            quality
                         ])
                 else:
                     # Fallback to original structure
                     display_cols = ['Spending Code', 'Spending Description', 
-                                  'Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation']
+                                  'Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation',
+                                  'Sample Size (n)', 'Data Quality Category']
                     results_export = results_df[[c for c in display_cols if c in results_df.columns]].copy()
                     
                     for _, row in results_export.iterrows():
@@ -2015,7 +2145,9 @@ def main():
                             round(row['Mean Dollars Per Year'], 2),
                             round(row['Variance'], 2),
                             round(row['Standard Error'], 2),
-                            round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else ""
+                            round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else "",
+                            int(row['Sample Size (n)']) if 'Sample Size (n)' in row and not pd.isna(row['Sample Size (n)']) else "",
+                            row['Data Quality Category'] if 'Data Quality Category' in row else 'F'
                         ])
                 
                 # Convert to DataFrame and write
