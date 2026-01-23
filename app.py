@@ -1189,8 +1189,7 @@ def main():
         overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
         results = []
         
-        # Get spending variables that exist in the data AND are in the TC001 balance set
-        # Check ITEMS_FOR_TC001_BALANCE directly (not filtered through ALL_SPENDING_VARS)
+        # Get spending variables that exist in the data - use ALL expenditure categories
         # Handle _C and _D versions: check if base variable or _C/_D versions exist
         def variable_exists(df, var):
             """Check if variable exists in any form (base, _C, or _D)"""
@@ -1198,16 +1197,16 @@ def main():
                    (var + '_C') in df.columns or 
                    (var + '_D') in df.columns)
         
-        # Check all items in ITEMS_FOR_TC001_BALANCE directly
+        # Check all items in ALL_SPENDING_VARS (all expenditure categories)
         available_spending_vars = [
-            var for var in ITEMS_FOR_TC001_BALANCE
+            var for var in ALL_SPENDING_VARS
             if variable_exists(filtered_df, var)
         ]
         
-        # Exclude parent totals to avoid double-counting (should be empty set, but keeping for safety)
+        # Exclude parent totals to avoid double-counting
         available_spending_vars = [
             var for var in available_spending_vars 
-            if var not in PARENT_TOTALS_TO_EXCLUDE
+            if var not in PARENT_TOTALS
         ]
         
         if len(available_spending_vars) == 0:
@@ -1475,8 +1474,8 @@ def main():
                                (var + '_D') in df.columns)
                     
                     available_spending_vars = [
-                        var for var in ITEMS_FOR_TC001_BALANCE
-                        if variable_exists(quintile_df, var)
+                        var for var in ALL_SPENDING_VARS
+                        if variable_exists(quintile_df, var) and var not in PARENT_TOTALS
                     ]
                     
                     # Calculate statistics for each quintile and each spending category
@@ -1575,8 +1574,8 @@ def main():
                                     if var_code in available_spending_vars:
                                         ordered_vars.append(var_code)
                         else:
-                            # Fallback: use the order from ITEMS_FOR_TC001_BALANCE
-                            ordered_vars = [var for var in ITEMS_FOR_TC001_BALANCE if var in available_spending_vars]
+                            # Fallback: use the order from ALL_SPENDING_VARS
+                            ordered_vars = [var for var in ALL_SPENDING_VARS if var in available_spending_vars]
                         
                         # Create pivot table: rows = spending categories, columns = quintiles + Total
                         # Use same ordering and indentation as regular output
