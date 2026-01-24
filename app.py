@@ -909,85 +909,73 @@ def organize_hierarchical_results(results_df, hierarchy_data):
     return hierarchical_results, var_to_node
 
 
+def _get_direct_children(var_code, hierarchy_order, var_to_node):
+    """Return direct children of var_code in the tree, from hierarchy_order (depth-first)."""
+    ho = hierarchy_order or []
+    idx = next((i for i, c in enumerate(ho) if c == var_code), -1)
+    if idx < 0:
+        return []
+    L = int(var_to_node.get(var_code, {}).get('level', 0))
+    children = []
+    i = idx + 1
+    while i < len(ho):
+        l_i = var_to_node.get(ho[i], {}).get('level')
+        if l_i is not None and l_i <= L:
+            break
+        if l_i == L + 1:
+            children.append(ho[i])
+        i += 1
+    return children
+
+
 def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data=None):
     """
-    Compute 'Granular Allocation' per row: non-zero only at the most granular (leaf) level
-    under TC001 or MG001, with Data Quality != 'F', and scaled so the column total equals
-    Total Current Consumption (TC001) + Gifts of money, support payments and charitable contributions (MG001).
-    Rows not meeting these criteria get np.nan (displayed blank).
+    Granular Allocation displays a subset of 'Mean Dollars per Year' for items under
+    TC001 (Total current consumption) and MG001 (Gifts of money, support payments and
+    charitable contributions). For each branch, choose the most granular level such that
+    *no* item at that level has Data Quality 'F'. If any child at a deeper level has 'F',
+    display at the parent level instead. Values shown are the actual Mean (no scaling).
     """
     if not hierarchical_results:
         return {}
+    results_dict = {r['var_code']: r for r in hierarchical_results}
     ho = (hierarchy_data or {}).get('hierarchy_order', [])
     v2n = var_to_node
 
-    # Target T = TC001 + MG001 from results
-    T = 0.0
-    for r in hierarchical_results:
-        if r['var_code'] in ('TC001', 'MG001'):
-            m = r.get('mean')
-            T += float(m) if m is not None and not (isinstance(m, float) and np.isnan(m)) else 0.0
-    if T == 0:
-        return {r['var_code']: np.nan for r in hierarchical_results}
+    def _qual(s):
+        return (str(s or '').strip().upper() == 'F')
 
-    # Sets: under_TC001, under_MG001 (var_codes that belong to those branches, from hierarchy_order)
-    under_TC001 = set()
-    under_MG001 = set()
-    if ho:
-        idx_tc = next((i for i, c in enumerate(ho) if c == 'TC001'), -1)
-        idx_mg = next((i for i, c in enumerate(ho) if c == 'MG001'), -1)
-        # Under TC001: TC001 plus descendants (after TC001 until we rise to level<=1, i.e. before TX010)
-        if idx_tc >= 0:
-            under_TC001.add('TC001')
-            i = idx_tc + 1
-            while i < len(ho):
-                lev = v2n.get(ho[i], {}).get('level', 9)
-                if lev is not None and lev <= 1:
-                    break
-                under_TC001.add(ho[i])
-                i += 1
-        # Under MG001: MG001 plus its descendants (after MG001 until we rise to level<=1 or end)
-        if idx_mg >= 0:
-            under_MG001.add('MG001')
-            i = idx_mg + 1
-            while i < len(ho):
-                lev = v2n.get(ho[i], {}).get('level', 9)
-                if lev is not None and lev <= 1:
-                    break
-                under_MG001.add(ho[i])
-                i += 1
-    under = under_TC001 | under_MG001
+    def _recurse(node):
+        children = _get_direct_children(node, ho, v2n)
+        children_in_results = [c for c in children if c in results_dict]
+        if not children_in_results:
+            # Leaf (in our result set): include if in results and not F
+            if node in results_dict and not _qual(results_dict[node].get('quality')):
+                return [node]
+            return []
+        # If any direct child has F, we cannot show at the deeper level; use this node
+        any_f = any(_qual(results_dict.get(c, {}).get('quality')) for c in children_in_results)
+        if any_f:
+            if node in results_dict and not _qual(results_dict[node].get('quality')):
+                return [node]
+            return []
+        # All children non-F: recurse into children (do not show this node)
+        out = []
+        for c in children_in_results:
+            out.extend(_recurse(c))
+        return out
 
-    # Most granular = highest (deepest) level present in results
-    max_level = max(int(r.get('level') or 0) for r in hierarchical_results)
+    selected = []
+    for root in ('TC001', 'MG001'):
+        selected.extend(_recurse(root))
 
-    def is_most_granular(item):
-        return int(item.get('level') or 0) == max_level
-
-    qualifying = []
-    for r in hierarchical_results:
-        vc = r['var_code']
-        if vc not in under:
-            continue
-        if not is_most_granular(r):
-            continue
-        q = str(r.get('quality') or '').strip().upper()
-        if q == 'F':
-            continue
-        qualifying.append(r)
-
-    S = sum(float(r.get('mean') or 0) for r in qualifying) if qualifying else 0
-    if S <= 0:
-        return {r['var_code']: np.nan for r in hierarchical_results}
-
-    scale = T / S
-    qual_codes = {r['var_code'] for r in qualifying}
+    selected_set = set(selected)
     alloc = {}
     for r in hierarchical_results:
         vc = r['var_code']
-        if vc in qual_codes:
-            m = r.get('mean') or 0
-            alloc[vc] = float(m) * scale
+        if vc in selected_set:
+            m = r.get('mean')
+            alloc[vc] = m if (m is not None and not (isinstance(m, float) and np.isnan(m))) else np.nan
         else:
             alloc[vc] = np.nan
     return alloc
@@ -995,8 +983,8 @@ def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_dat
 
 def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
-    Includes 'Granular Allocation' column: non-zero only at most granular level under TC001/MG001, quality != 'F',
-    grand total = TC001 + MG001."""
+    'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
+    granular level where no item has quality 'F' (if any deeper item has F, show at the parent level)."""
     display_rows = []
     INDENT_PER_LEVEL = 2  # spaces per hierarchy level
     gran = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
