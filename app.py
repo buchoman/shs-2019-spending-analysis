@@ -826,14 +826,14 @@ def format_option_label(var_name, value):
     return f"{label} ({value})" if label != str(value) else str(value)
 
 def organize_hierarchical_results(results_df, hierarchy_data):
-    """Organize results by hierarchy level with proper indentation"""
+    """Organize results in the same order as the hierarchy Excel file, preserving depth-first nested order."""
     if hierarchy_data is None:
         return None, None
     
     var_to_node = hierarchy_data.get('var_to_node', {})
     level_vars = hierarchy_data.get('level_vars', {})
+    hierarchy_order = hierarchy_data.get('hierarchy_order', [])
     
-    # Build ordered list based on hierarchy file order (by level, then by hierarchy position)
     # Create a mapping of var_code to results
     results_dict = {}
     for _, row in results_df.iterrows():
@@ -848,13 +848,16 @@ def organize_hierarchical_results(results_df, hierarchy_data):
             'quality': row.get('Data Quality Category', 'F')
         }
     
-    # Get all variables in hierarchy order (by level, maintaining file order)
     hierarchical_results = []
-    for level in sorted(level_vars.keys()):
-        vars_at_level = level_vars[level]
-        for var_code in vars_at_level:
-            if var_code in results_dict:  # Only include if we have results for it
+    used = set()
+    
+    if hierarchy_order:
+        # Use exact order from "Hierarchy of expenditure categories, PUMF 2019.xlsx" (depth-first)
+        for var_code in hierarchy_order:
+            if var_code in results_dict and var_code not in used:
+                used.add(var_code)
                 node = var_to_node.get(var_code, {})
+                level = node.get('level', 0)
                 hierarchical_results.append({
                     'var_code': var_code,
                     'level': level,
@@ -867,20 +870,53 @@ def organize_hierarchical_results(results_df, hierarchy_data):
                     'n': results_dict[var_code]['n'],
                     'quality': results_dict[var_code]['quality']
                 })
+        # Append any results not in hierarchy_order (e.g. vars in data but not in Excel)
+        for var_code, data in results_dict.items():
+            if var_code not in used:
+                node = var_to_node.get(var_code, {})
+                level = node.get('level', 0)
+                hierarchical_results.append({
+                    'var_code': var_code,
+                    'level': level,
+                    'parent': node.get('parent'),
+                    'description': SPENDING_DESCRIPTIONS.get(var_code, node.get('description', var_code)),
+                    'mean': data['mean'],
+                    'variance': data['variance'],
+                    'std_error': data['std_error'],
+                    'cv': data['cv'],
+                    'n': data['n'],
+                    'quality': data['quality']
+                })
+    else:
+        # Fallback when hierarchy_order not in JSON: order by level_vars (by level, then file order within level)
+        for level in sorted(level_vars.keys(), key=lambda x: int(x) if isinstance(x, str) and x.isdigit() else x):
+            for var_code in level_vars[level]:
+                if var_code in results_dict:
+                    node = var_to_node.get(var_code, {})
+                    hierarchical_results.append({
+                        'var_code': var_code,
+                        'level': int(level) if isinstance(level, str) and str(level).isdigit() else level,
+                        'parent': node.get('parent'),
+                        'description': SPENDING_DESCRIPTIONS.get(var_code, node.get('description', var_code)),
+                        'mean': results_dict[var_code]['mean'],
+                        'variance': results_dict[var_code]['variance'],
+                        'std_error': results_dict[var_code]['std_error'],
+                        'cv': results_dict[var_code]['cv'],
+                        'n': results_dict[var_code]['n'],
+                        'quality': results_dict[var_code]['quality']
+                    })
     
     return hierarchical_results, var_to_node
 
 def build_hierarchical_display(hierarchical_results, var_to_node):
-    """Build display data with proper indentation"""
+    """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc."""
     display_rows = []
+    INDENT_PER_LEVEL = 2  # spaces per hierarchy level
     
     for item in hierarchical_results:
         level = int(item['level']) if item.get('level') is not None else 0
-        # Apply indentation: Level 0 and 1 = no indent, Level 2+ = 2 spaces
-        if level >= 2:
-            indent = "  "  # 2 spaces for Level 2
-        else:
-            indent = ""  # No indent for Level 0 and 1
+        # Indent each level from the previous: L0=0, L1=2, L2=4, L3=6, ...
+        indent = " " * (level * INDENT_PER_LEVEL)
         var_code = item['var_code']
         description = item['description']
         
@@ -2100,14 +2136,11 @@ def main():
                 hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
                 
                 if hierarchical_results_export:
-                    # Build hierarchical display with indentation
+                    # Build hierarchical display with nested indentation (same as on-screen: L2 under L1, L3 under L2, etc.)
+                    INDENT_PER_LEVEL = 2
                     for item in hierarchical_results_export:
                         level = int(item['level']) if item.get('level') is not None else 0
-                        # Apply indentation: Level 0 and 1 = no indent, Level 2+ = 2 spaces
-                        if level >= 2:
-                            indent = "  "  # 2 spaces for Level 2
-                        else:
-                            indent = ""  # No indent for Level 0 and 1
+                        indent = " " * (level * INDENT_PER_LEVEL)
                         var_code = item['var_code']
                         description = item['description']
                         

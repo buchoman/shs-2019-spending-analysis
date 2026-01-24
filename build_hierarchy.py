@@ -130,6 +130,16 @@ for level in sorted(level_vars.keys()):
 # Save to JSON for use in app
 sibling_groups = get_sibling_groups(var_to_node)
 
+# Build hierarchy_order: flat depth-first list in Excel file order (each var_code once, first occurrence)
+# This preserves the exact order from "Hierarchy of expenditure categories, PUMF 2019.xlsx"
+seen = set()
+hierarchy_order = []
+for h in hierarchy_data:
+    c = h['var_code']
+    if c not in seen:
+        seen.add(c)
+        hierarchy_order.append(c)
+
 hierarchy_structure = {
     'var_to_node': {k: {
         'var_code': v['var_code'],
@@ -139,7 +149,8 @@ hierarchy_structure = {
         'children': v['children']
     } for k, v in var_to_node.items()},
     'level_vars': level_vars,
-    'sibling_groups': {f"{parent}_{level}": vars_list for (parent, level), vars_list in sibling_groups.items()}
+    'sibling_groups': {f"{parent}_{level}": vars_list for (parent, level), vars_list in sibling_groups.items()},
+    'hierarchy_order': hierarchy_order
 }
 
 with open('hierarchy_structure.json', 'w') as f:
