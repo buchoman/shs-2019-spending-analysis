@@ -1311,16 +1311,15 @@ def main():
                    (var + '_C') in df.columns or 
                    (var + '_D') in df.columns)
         
-        # Check all items in ALL_SPENDING_VARS (all expenditure categories)
+        # Use the complete hierarchy tree (hierarchy_order) so all top-level and branches are shown
+        ho = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
+        if ho:
+            all_hierarchy_vars = ho
+        else:
+            all_hierarchy_vars = sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
         available_spending_vars = [
-            var for var in ALL_SPENDING_VARS
+            var for var in all_hierarchy_vars
             if variable_exists(filtered_df, var)
-        ]
-        
-        # Exclude parent totals to avoid double-counting
-        available_spending_vars = [
-            var for var in available_spending_vars 
-            if var not in PARENT_TOTALS
         ]
         
         if len(available_spending_vars) == 0:
@@ -1388,103 +1387,6 @@ def main():
         st.session_state.hierarchy_data = hierarchy_data  # Store hierarchy for later use
         progress_bar.empty()
         status_text.empty()
-        
-        # Phase 2: Calculate Level 2 category totals (30% of progress)
-        overall_status_text.text("Phase 2 of 2: Calculating Level 2 category totals...")
-        level2_totals = []
-        
-        if hierarchy_data:
-            var_to_node = hierarchy_data.get('var_to_node', {})
-            level_vars = hierarchy_data.get('level_vars', {})
-            
-            # Get Level 2 variables (main expenditure categories)
-            level2_vars = level_vars.get('2', [])
-            
-            for level2_var in level2_vars:
-                if not variable_exists(filtered_df, level2_var):
-                    continue
-                
-                # Get all descendants of this Level 2 variable
-                def get_all_descendants(var_code, var_to_node):
-                    """Recursively get all descendant variable codes"""
-                    descendants = []
-                    node = var_to_node.get(var_code, {})
-                    children = node.get('children', [])
-                    for child in children:
-                        if child in available_spending_vars and variable_exists(filtered_df, child):
-                            descendants.append(child)
-                            # Recursively get descendants of children
-                            descendants.extend(get_all_descendants(child, var_to_node))
-                    return descendants
-                
-                descendants = get_all_descendants(level2_var, var_to_node)
-                
-                # If we have descendants, sum them; otherwise use the Level 2 variable itself
-                if len(descendants) > 0:
-                    # Sum all descendants (handling _C and _D versions)
-                    descendant_values = []
-                    for desc_var in descendants:
-                        desc_values = get_variable_value(filtered_df, desc_var)
-                        descendant_values.append(desc_values)
-                    
-                    if descendant_values:
-                        filtered_df['_LEVEL2_SUM'] = pd.concat(descendant_values, axis=1).sum(axis=1)
-                        mean_est = calculate_weighted_mean(filtered_df, '_LEVEL2_SUM')
-                        variance = calculate_bootstrap_variance(filtered_df, '_LEVEL2_SUM', bootstrap_cols=bootstrap_cols)
-                    else:
-                        continue
-                else:
-                    # Use the Level 2 variable directly if it exists in results (handles _C and _D)
-                    if level2_var in available_spending_vars:
-                        mean_est = calculate_weighted_mean(filtered_df, level2_var)
-                        variance = calculate_bootstrap_variance(filtered_df, level2_var, bootstrap_cols=bootstrap_cols)
-                    else:
-                        continue
-                
-                std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
-                
-                # Calculate CV
-                cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
-                
-                # Calculate sample size (n) - for Level 2, use the variable directly or sum of descendants
-                if len(descendants) > 0:
-                    # For summed variables, count observations where at least one descendant has a value
-                    descendant_values = []
-                    for desc_var in descendants:
-                        desc_values = get_variable_value(filtered_df, desc_var)
-                        descendant_values.append(desc_values)
-                    if descendant_values:
-                        combined_values = pd.concat(descendant_values, axis=1).sum(axis=1)
-                        n = (combined_values.notna() & (filtered_df['WeightD'] > 0)).sum()
-                    else:
-                        n = 0
-                else:
-                    # Use the Level 2 variable directly
-                    n = calculate_sample_size(filtered_df, level2_var)
-                
-                # Get region information if available
-                region = None
-                if 'PROV' in filtered_df.columns:
-                    region = filtered_df['PROV'].mode().iloc[0] if len(filtered_df['PROV'].mode()) > 0 else None
-                
-                # Determine data quality category
-                quality_category = determine_data_quality_category(cv, n=n, region=region)
-                
-                node = var_to_node.get(level2_var, {})
-                description = SPENDING_DESCRIPTIONS.get(level2_var, node.get('description', level2_var))
-                
-                level2_totals.append({
-                    'Spending Code': level2_var,
-                    'Spending Description': description,
-                    'Mean Dollars Per Year': mean_est,
-                    'Variance': variance,
-                    'Standard Error': std_error,
-                    'Coefficient of Variation': cv,
-                    'Sample Size (n)': n,
-                    'Data Quality Category': quality_category
-                })
-        
-        st.session_state.level2_totals = pd.DataFrame(level2_totals) if level2_totals else None
         overall_progress_bar.progress(1.0)
         
         # Calculate average household income and current consumption
@@ -1587,9 +1489,11 @@ def main():
                                (var + '_C') in df.columns or 
                                (var + '_D') in df.columns)
                     
+                    ho_q = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
+                    all_hierarchy_vars_q = ho_q if ho_q else sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
                     available_spending_vars = [
-                        var for var in ALL_SPENDING_VARS
-                        if variable_exists(quintile_df, var) and var not in PARENT_TOTALS
+                        var for var in all_hierarchy_vars_q
+                        if variable_exists(quintile_df, var)
                     ]
                     
                     # Calculate statistics for each quintile and each spending category
@@ -1675,20 +1579,12 @@ def main():
                         
                         total_dict = {r['var']: {'avg': r['total_avg'], 'cv': r['total_cv']} for r in total_results}
                         
-                        # Order variables using the same hierarchy ordering as regular output
+                        # Order variables using hierarchy_order (full tree) to match regular output
                         ordered_vars = []
-                        if hierarchy_data:
-                            var_to_node = hierarchy_data.get('var_to_node', {})
-                            level_vars = hierarchy_data.get('level_vars', {})
-                            
-                            # Get variables in hierarchy order (by level, maintaining file order)
-                            for level in sorted(level_vars.keys()):
-                                vars_at_level = level_vars[level]
-                                for var_code in vars_at_level:
-                                    if var_code in available_spending_vars:
-                                        ordered_vars.append(var_code)
+                        ho_p = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
+                        if ho_p:
+                            ordered_vars = [v for v in ho_p if v in available_spending_vars]
                         else:
-                            # Fallback: use the order from ALL_SPENDING_VARS
                             ordered_vars = [var for var in ALL_SPENDING_VARS if var in available_spending_vars]
                         
                         # Create pivot table: rows = spending categories, columns = quintiles + Total
