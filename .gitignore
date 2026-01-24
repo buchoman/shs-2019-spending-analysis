@@ -54,3 +54,6 @@ SHS_EDM_2019/Data/TXT/*.txt
 *.tmp
 *.bak
 
+# Allocation input cache (user upload, replaced on new upload)
+allocation_input_latest.json
+

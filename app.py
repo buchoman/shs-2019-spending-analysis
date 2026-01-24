@@ -25,6 +25,9 @@ DATA_DIR = Path("SHS_EDM_2019/Data/SAS")
 MAIN_FILE = DATA_DIR / "pumf_shs2019.sas7bdat"
 BSW_FILE = DATA_DIR / "pumf_shs2019_bsw.sas7bdat"
 
+# Allocation Input: cache file so it remains valid until replaced by a new upload
+ALLOCATION_INPUT_CACHE = Path("allocation_input_latest.json")
+
 # Value label mappings for filter variables
 VALUE_LABELS = {
     'PROV': {
@@ -601,6 +604,100 @@ ITEMS_FOR_TC001_BALANCE = {
 # No parent totals to exclude - we're using Level 2 categories directly
 PARENT_TOTALS_TO_EXCLUDE = set()
 
+
+def _to_float(x):
+    """Convert to float; return None if not parseable."""
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return None
+    try:
+        return float(x)
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_allocation_input_excel(uploaded_file):
+    """
+    Parse an Allocation Input Form Excel file. Expects:
+    - A column for expenditure category (Spending Code / Code / Variable / Category or first column)
+    - A column for Shared Consumption % (header containing 'shared' and '%' or 'pct' or 'consumption')
+    - A column for Child Intensity Index (header containing 'child' and 'intensity')
+    Returns: {var_code: {'shared_pct': float|None, 'child_intensity': float|None}}
+    """
+    try:
+        df = pd.read_excel(uploaded_file, sheet_name=0, header=0)
+    except Exception as e:
+        return None, str(e)
+    if df is None or df.empty:
+        return None, "The file is empty or could not be read."
+    cols = [str(c).strip().lower() for c in df.columns]
+    # Find code column
+    code_col = None
+    for i, c in enumerate(cols):
+        if any(k in c for k in ('code', 'var', 'variable', 'category', 'spending')):
+            code_col = df.columns[i]
+            break
+    if code_col is None:
+        code_col = df.columns[0]
+    # Shared Consumption %
+    shared_col = None
+    for i, c in enumerate(cols):
+        if 'shared' in c and any(k in c for k in ('%', 'pct', 'percent', 'consumption')):
+            shared_col = df.columns[i]
+            break
+    if shared_col is None:
+        for i, c in enumerate(cols):
+            if 'shared' in c or ('consumption' in c and '%' in c):
+                shared_col = df.columns[i]
+                break
+    # Child Intensity Index
+    child_col = None
+    for i, c in enumerate(cols):
+        if 'child' in c and 'intensity' in c:
+            child_col = df.columns[i]
+            break
+    if child_col is None:
+        for i, c in enumerate(cols):
+            if 'intensity' in c and 'child' in c:
+                child_col = df.columns[i]
+                break
+    out = {}
+    for _, row in df.iterrows():
+        v = row.get(code_col)
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            continue
+        var_code = str(v).strip() if v is not None else None
+        if not var_code or var_code == 'NAN':
+            continue
+        # Normalize to match our codes (e.g. FD102): uppercase prefix if it looks like a var code
+        if len(var_code) >= 2 and var_code[:2].isalpha():
+            var_code = var_code[:2].upper() + var_code[2:]
+        out[var_code] = {
+            'shared_pct': _to_float(row.get(shared_col)) if shared_col is not None else None,
+            'child_intensity': _to_float(row.get(child_col)) if child_col is not None else None
+        }
+    return out, None
+
+
+def load_allocation_from_cache():
+    """Load allocation input from the cache file. Returns dict or None."""
+    try:
+        if ALLOCATION_INPUT_CACHE.exists():
+            with open(ALLOCATION_INPUT_CACHE, 'r') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
+
+
+def save_allocation_to_cache(data):
+    """Save allocation input to the cache file so it remains valid until replaced."""
+    try:
+        with open(ALLOCATION_INPUT_CACHE, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
 # Load hierarchy structure
 @st.cache_data
 def load_hierarchy():
@@ -988,13 +1085,19 @@ def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_dat
     return alloc
 
 
-def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None):
+def _has_granular_value(ga):
+    return ga is not None and not (isinstance(ga, float) and np.isnan(ga))
+
+
+def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
-    granular level where no item has quality 'F' (if any deeper item has F, show at the parent level)."""
+    granular level where no item has quality 'F' (if any deeper item has F, show at the parent level).
+    'Shared Consumption %' and 'Child Intensity Index': from allocation_lookup, only for rows with Granular Allocation."""
     display_rows = []
     INDENT_PER_LEVEL = 2  # spaces per hierarchy level
     gran = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
+    alloc = allocation_lookup if allocation_lookup is not None else {}
     
     for item in hierarchical_results:
         level = int(item['level']) if item.get('level') is not None else 0
@@ -1003,8 +1106,10 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
         var_code = item['var_code']
         description = item['description']
         ga = gran.get(var_code, np.nan)
+        show_alloc = bool(alloc) and _has_granular_value(ga)
+        lookup = alloc.get(var_code, {}) if show_alloc else {}
         
-        display_rows.append({
+        row = {
             'Spending Code': var_code,
             'Spending Description': f"{indent}{description}",
             'Level': level,
@@ -1015,7 +1120,12 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
             'Sample Size (n)': item.get('n', np.nan),
             'Data Quality Category': item.get('quality', 'F'),
             'Granular Allocation': ga
-        })
+        }
+        # Add Shared Consumption % and Child Intensity Index only when user has loaded allocation data
+        if allocation_lookup is not None:
+            row['Shared Consumption %'] = lookup.get('shared_pct') if show_alloc else np.nan
+            row['Child Intensity Index'] = lookup.get('child_intensity') if show_alloc else np.nan
+        display_rows.append(row)
     
     return pd.DataFrame(display_rows)
 
@@ -1278,6 +1388,30 @@ def main():
     
     if len(filtered_df) == 0:
         return
+    
+    # Allocation Input: load from cache if not yet in session (remains valid until replaced by new upload)
+    if 'allocation_input' not in st.session_state:
+        cached = load_allocation_from_cache()
+        st.session_state['allocation_input'] = cached if isinstance(cached, dict) else None
+    
+    st.markdown("**Allocation Input (optional)**")
+    st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
+    uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
+    if uploaded is not None:
+        parsed, err = parse_allocation_input_excel(uploaded)
+        if err:
+            st.error(f"Could not parse Allocation Input file: {err}")
+        elif parsed:
+            st.session_state['allocation_input'] = parsed
+            try:
+                save_allocation_to_cache(parsed)
+            except Exception:
+                pass
+            st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
+    if st.session_state.get('allocation_input'):
+        st.info("Allocation input is active. Shared Consumption % and Child Intensity Index will be shown for granular allocation rows.")
+    
+    st.markdown("---")
     
     # Binary choice: Two buttons side by side
     st.markdown("**Select Calculation Mode:**")
@@ -1966,7 +2100,7 @@ def main():
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         if hierarchical_results:
-            display_df = build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data_display)
+            display_df = build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data_display, allocation_lookup=st.session_state.get('allocation_input'))
             # Reorder columns: Code, Description, then numeric/quality, with Granular Allocation after Data Quality
             display_cols = ['Spending Code', 'Spending Description'] + [c for c in display_df.columns if c not in ['Spending Code', 'Spending Description', 'Level']]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]]
@@ -2107,10 +2241,14 @@ def main():
                 all_data.append([""])
                 
                 # BOTTOM SECTION: Expenditure Categories
+                allocation_export = st.session_state.get('allocation_input')
                 all_data.append(["By Expenditure Category"])
-                all_data.append(["Spending Code", "Spending Description", 
-                               "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)",
-                               "Sample Size (n)", "Data Quality Category", "Granular Allocation"])
+                exp_header = ["Spending Code", "Spending Description", 
+                             "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)",
+                             "Sample Size (n)", "Data Quality Category", "Granular Allocation"]
+                if allocation_export is not None:
+                    exp_header += ["Shared Consumption %", "Child Intensity Index"]
+                all_data.append(exp_header)
                 
                 # Use hierarchical structure if available
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
@@ -2137,7 +2275,7 @@ def main():
                                 n = var_row.iloc[0]['Sample Size (n)']
                                 quality = var_row.iloc[0]['Data Quality Category']
                         
-                        all_data.append([
+                        row = [
                             var_code,
                             f"{indent}{description}",
                             round(item['mean'], 2),
@@ -2147,7 +2285,15 @@ def main():
                             int(n) if not pd.isna(n) else "",
                             quality,
                             ga_display
-                        ])
+                        ]
+                        if allocation_export is not None:
+                            show_alloc = _has_granular_value(ga)
+                            lookup = allocation_export.get(var_code, {}) if show_alloc else {}
+                            v1 = lookup.get('shared_pct')
+                            v2 = lookup.get('child_intensity')
+                            row.append(round(v1, 2) if v1 is not None and isinstance(v1, (int, float)) else "")
+                            row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
+                        all_data.append(row)
                 else:
                     # Fallback to original structure (no hierarchy; Granular Allocation left blank)
                     display_cols = ['Spending Code', 'Spending Description', 
@@ -2156,7 +2302,7 @@ def main():
                     results_export = results_df[[c for c in display_cols if c in results_df.columns]].copy()
                     
                     for _, row in results_export.iterrows():
-                        all_data.append([
+                        data_row = [
                             row['Spending Code'],
                             row['Spending Description'],
                             round(row['Mean Dollars Per Year'], 2),
@@ -2166,7 +2312,10 @@ def main():
                             int(row['Sample Size (n)']) if 'Sample Size (n)' in row and not pd.isna(row['Sample Size (n)']) else "",
                             row['Data Quality Category'] if 'Data Quality Category' in row else 'F',
                             ""  # Granular Allocation: not computed when hierarchy unavailable
-                        ])
+                        ]
+                        if allocation_export is not None:
+                            data_row.extend(["", ""])  # Shared Consumption % and Child Intensity Index: no granular allocation in fallback
+                        all_data.append(data_row)
                 
                 # Convert to DataFrame and write
                 export_df = pd.DataFrame(all_data)
