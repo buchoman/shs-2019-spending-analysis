@@ -199,13 +199,13 @@ PARENT_TOTALS = {
     "TR002",  # Transportation (another parent total)
     "ME001",  # Miscellaneous expenditures (parent of ME039, ME040)
     "TA018",  # Tobacco products, alcoholic beverages and cannabis (parent of TA005, TA006, TA007, TA008, TA990)
-    "TC001",  # Total current consumption (parent of all consumption)
-    "TE001"   # Total expenditure (parent of all expenditure)
+    # TE001 and TC001 removed: user-requested top-level totals (Total expenditure, Total current consumption) to be shown
 }
 
 # Spending category mappings (organized by major category prefix)
-# Excludes parent totals to avoid double-counting
+# Excludes parent totals to avoid double-counting (except Totals: TE001, TC001 which are shown by request)
 SPENDING_CATEGORIES = {
+    "Totals": ["TE001", "TC001"],  # Total expenditure, Total current consumption
     "Child Care": ["CC001"],
     "Clothing": ["CL014", "CL015", "CL016", "CL017", "CL023", "CL026", "CL029", "CL030", "CL990"],
     "Communications": ["CS003", "CS004", "CS005", "CS007", "CS008", "CS020", "CS021"],  # Excluded CS030 (parent)
@@ -908,10 +908,98 @@ def organize_hierarchical_results(results_df, hierarchy_data):
     
     return hierarchical_results, var_to_node
 
-def build_hierarchical_display(hierarchical_results, var_to_node):
-    """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc."""
+
+def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data=None):
+    """
+    Compute 'Granular Allocation' per row: non-zero only at the most granular (leaf) level
+    under TC001 or MG001, with Data Quality != 'F', and scaled so the column total equals
+    Total Current Consumption (TC001) + Gifts of money, support payments and charitable contributions (MG001).
+    Rows not meeting these criteria get np.nan (displayed blank).
+    """
+    if not hierarchical_results:
+        return {}
+    ho = (hierarchy_data or {}).get('hierarchy_order', [])
+    v2n = var_to_node
+
+    # Target T = TC001 + MG001 from results
+    T = 0.0
+    for r in hierarchical_results:
+        if r['var_code'] in ('TC001', 'MG001'):
+            m = r.get('mean')
+            T += float(m) if m is not None and not (isinstance(m, float) and np.isnan(m)) else 0.0
+    if T == 0:
+        return {r['var_code']: np.nan for r in hierarchical_results}
+
+    # Sets: under_TC001, under_MG001 (var_codes that belong to those branches, from hierarchy_order)
+    under_TC001 = set()
+    under_MG001 = set()
+    if ho:
+        idx_tc = next((i for i, c in enumerate(ho) if c == 'TC001'), -1)
+        idx_mg = next((i for i, c in enumerate(ho) if c == 'MG001'), -1)
+        # Under TC001: TC001 plus descendants (after TC001 until we rise to level<=1, i.e. before TX010)
+        if idx_tc >= 0:
+            under_TC001.add('TC001')
+            i = idx_tc + 1
+            while i < len(ho):
+                lev = v2n.get(ho[i], {}).get('level', 9)
+                if lev is not None and lev <= 1:
+                    break
+                under_TC001.add(ho[i])
+                i += 1
+        # Under MG001: MG001 plus its descendants (after MG001 until we rise to level<=1 or end)
+        if idx_mg >= 0:
+            under_MG001.add('MG001')
+            i = idx_mg + 1
+            while i < len(ho):
+                lev = v2n.get(ho[i], {}).get('level', 9)
+                if lev is not None and lev <= 1:
+                    break
+                under_MG001.add(ho[i])
+                i += 1
+    under = under_TC001 | under_MG001
+
+    # Most granular = highest (deepest) level present in results
+    max_level = max(int(r.get('level') or 0) for r in hierarchical_results)
+
+    def is_most_granular(item):
+        return int(item.get('level') or 0) == max_level
+
+    qualifying = []
+    for r in hierarchical_results:
+        vc = r['var_code']
+        if vc not in under:
+            continue
+        if not is_most_granular(r):
+            continue
+        q = str(r.get('quality') or '').strip().upper()
+        if q == 'F':
+            continue
+        qualifying.append(r)
+
+    S = sum(float(r.get('mean') or 0) for r in qualifying) if qualifying else 0
+    if S <= 0:
+        return {r['var_code']: np.nan for r in hierarchical_results}
+
+    scale = T / S
+    qual_codes = {r['var_code'] for r in qualifying}
+    alloc = {}
+    for r in hierarchical_results:
+        vc = r['var_code']
+        if vc in qual_codes:
+            m = r.get('mean') or 0
+            alloc[vc] = float(m) * scale
+        else:
+            alloc[vc] = np.nan
+    return alloc
+
+
+def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None):
+    """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
+    Includes 'Granular Allocation' column: non-zero only at most granular level under TC001/MG001, quality != 'F',
+    grand total = TC001 + MG001."""
     display_rows = []
     INDENT_PER_LEVEL = 2  # spaces per hierarchy level
+    gran = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
     
     for item in hierarchical_results:
         level = int(item['level']) if item.get('level') is not None else 0
@@ -919,6 +1007,7 @@ def build_hierarchical_display(hierarchical_results, var_to_node):
         indent = " " * (level * INDENT_PER_LEVEL)
         var_code = item['var_code']
         description = item['description']
+        ga = gran.get(var_code, np.nan)
         
         display_rows.append({
             'Spending Code': var_code,
@@ -929,7 +1018,8 @@ def build_hierarchical_display(hierarchical_results, var_to_node):
             'Standard Error': item['std_error'],
             'Coefficient of Variation': item['cv'],
             'Sample Size (n)': item.get('n', np.nan),
-            'Data Quality Category': item.get('quality', 'F')
+            'Data Quality Category': item.get('quality', 'F'),
+            'Granular Allocation': ga
         })
     
     return pd.DataFrame(display_rows)
@@ -1985,8 +2075,8 @@ def main():
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         if hierarchical_results:
-            display_df = build_hierarchical_display(hierarchical_results, var_to_node)
-            # Reorder columns
+            display_df = build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data_display)
+            # Reorder columns: Code, Description, then numeric/quality, with Granular Allocation after Data Quality
             display_cols = ['Spending Code', 'Spending Description'] + [c for c in display_df.columns if c not in ['Spending Code', 'Spending Description', 'Level']]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]]
             st.dataframe(display_df, use_container_width=True, height=400)
@@ -2129,11 +2219,12 @@ def main():
                 all_data.append(["By Expenditure Category"])
                 all_data.append(["Spending Code", "Spending Description", 
                                "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)",
-                               "Sample Size (n)", "Data Quality Category"])
+                               "Sample Size (n)", "Data Quality Category", "Granular Allocation"])
                 
                 # Use hierarchical structure if available
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
                 hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
+                gran_alloc = compute_granular_allocation(hierarchical_results_export, var_to_node_export, hierarchy_data_export) if hierarchical_results_export else {}
                 
                 if hierarchical_results_export:
                     # Build hierarchical display with nested indentation (same as on-screen: L2 under L1, L3 under L2, etc.)
@@ -2143,6 +2234,8 @@ def main():
                         indent = " " * (level * INDENT_PER_LEVEL)
                         var_code = item['var_code']
                         description = item['description']
+                        ga = gran_alloc.get(var_code, np.nan)
+                        ga_display = "" if (ga is None or (isinstance(ga, float) and np.isnan(ga))) else round(ga, 2)
                         
                         # Get sample size and quality category from results_df
                         n = np.nan
@@ -2161,10 +2254,11 @@ def main():
                             round(item['std_error'], 2),
                             round(item['cv'], 2) if not pd.isna(item['cv']) else "",
                             int(n) if not pd.isna(n) else "",
-                            quality
+                            quality,
+                            ga_display
                         ])
                 else:
-                    # Fallback to original structure
+                    # Fallback to original structure (no hierarchy; Granular Allocation left blank)
                     display_cols = ['Spending Code', 'Spending Description', 
                                   'Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation',
                                   'Sample Size (n)', 'Data Quality Category']
@@ -2179,7 +2273,8 @@ def main():
                             round(row['Standard Error'], 2),
                             round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else "",
                             int(row['Sample Size (n)']) if 'Sample Size (n)' in row and not pd.isna(row['Sample Size (n)']) else "",
-                            row['Data Quality Category'] if 'Data Quality Category' in row else 'F'
+                            row['Data Quality Category'] if 'Data Quality Category' in row else 'F',
+                            ""  # Granular Allocation: not computed when hierarchy unavailable
                         ])
                 
                 # Convert to DataFrame and write
