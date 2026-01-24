@@ -624,7 +624,27 @@ def parse_allocation_input_excel(uploaded_file):
     Returns: {var_code: {'shared_pct': float|None, 'child_intensity': float|None}}
     """
     try:
-        df = pd.read_excel(uploaded_file, sheet_name=0, header=0)
+        # Detect header row: first row containing "Spending Code" (form may have a title row above)
+        df_peek = pd.read_excel(uploaded_file, sheet_name=0, header=None, nrows=15)
+    except Exception as e:
+        return None, str(e)
+    header_row = 0
+    for i in range(len(df_peek)):
+        for v in df_peek.iloc[i]:
+            if v is None:
+                continue
+            if isinstance(v, float) and np.isnan(v):
+                continue
+            if str(v).strip().lower() == 'spending code':
+                header_row = i
+                break
+        else:
+            continue
+        break
+    try:
+        if hasattr(uploaded_file, 'seek'):
+            uploaded_file.seek(0)
+        df = pd.read_excel(uploaded_file, sheet_name=0, header=header_row)
     except Exception as e:
         return None, str(e)
     if df is None or df.empty:
