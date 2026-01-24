@@ -1109,11 +1109,34 @@ def _has_granular_value(ga):
     return ga is not None and not (isinstance(ga, float) and np.isnan(ga))
 
 
-def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None):
+def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
+    """Compute Shared Spending, Exclusive Per Child, Exclusive Per Adult so that
+    Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = M.
+    Child Intensity Index: dollars (of every $10 of exclusive spending) to child; 0=all to adult, 10=all to child.
+    shared_pct: fraction 0–1 (if >1 treated as 0–100 and scaled). child_intensity: 0–10.
+    """
+    s = shared_pct if shared_pct is not None else 0
+    if isinstance(s, (int, float)) and s > 1:
+        s = s / 100
+    s = float(s) if s is not None else 0
+    c_idx = child_intensity if child_intensity is not None else 0
+    c_idx = max(0, min(10, float(c_idx) if c_idx is not None else 0))
+    n_a = max(1, int(n_adults) if n_adults is not None else 1)
+    n_c = max(0, int(n_children) if n_children is not None else 0)
+    shared = s * M
+    excl_total = (1 - s) * M
+    excl_per_child = ((c_idx / 10) * excl_total / n_c) if n_c > 0 else 0.0
+    excl_per_adult = ((10 - c_idx) / 10) * excl_total / n_a
+    return shared, excl_per_child, excl_per_adult
+
+
+def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
     granular level where no item has quality 'F' (if any deeper item has F, show at the parent level).
-    'Shared Consumption %' and 'Child Intensity Index': from allocation_lookup, only for rows with Granular Allocation."""
+    'Shared Consumption %' and 'Child Intensity Index': from allocation_lookup, only for rows with Granular Allocation.
+    When allocation is loaded: 'Shared Spending', 'Exclusive Spending Per Child', 'Exclusive Spending Per Adult'
+    so that Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = Mean Dollars Per Year."""
     display_rows = []
     INDENT_PER_LEVEL = 2  # spaces per hierarchy level
     gran = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
@@ -1141,10 +1164,24 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
             'Data Quality Category': item.get('quality', 'F'),
             'Granular Allocation': ga
         }
-        # Add Shared Consumption % and Child Intensity Index only when user has loaded allocation data
+        # Add Shared Consumption %, Child Intensity Index, and the 3 allocation columns when user has loaded allocation data
         if allocation_lookup is not None:
             row['Shared Consumption %'] = lookup.get('shared_pct') if show_alloc else np.nan
             row['Child Intensity Index'] = lookup.get('child_intensity') if show_alloc else np.nan
+            if show_alloc:
+                shared, excl_per_child, excl_per_adult = _allocation_split(
+                    item['mean'],
+                    lookup.get('shared_pct'),
+                    lookup.get('child_intensity'),
+                    n_adults, n_children
+                )
+                row['Shared Spending'] = shared
+                row['Exclusive Spending Per Child'] = excl_per_child
+                row['Exclusive Spending Per Adult'] = excl_per_adult
+            else:
+                row['Shared Spending'] = np.nan
+                row['Exclusive Spending Per Child'] = np.nan
+                row['Exclusive Spending Per Adult'] = np.nan
         display_rows.append(row)
     
     return pd.DataFrame(display_rows)
@@ -1374,6 +1411,23 @@ def main():
             if len(selected_p5to15) > 0:
                 filters['P5to15YN'] = selected_p5to15
         
+        st.subheader("Allocation: Household Composition")
+        st.caption("Used to split spending into Shared, Exclusive Per Child, and Exclusive Per Adult when allocation input is loaded.")
+        total_adults = st.selectbox(
+            "Total Adults",
+            options=[1, 2, 3, 4],
+            index=1,
+            key="total_adults",
+            help="Number of adults (1–4) for allocation of exclusive spending."
+        )
+        total_children = st.selectbox(
+            "Total Children",
+            options=[1, 2, 3, 4, 5, 6],
+            index=0,
+            key="total_children",
+            help="Number of children (1–6) for allocation of exclusive spending."
+        )
+        
         st.subheader("Vehicles")
         vehicle_yn = get_unique_values(df, 'VehicleYN')
         if vehicle_yn:
@@ -1429,7 +1483,7 @@ def main():
                 pass
             st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
     if st.session_state.get('allocation_input'):
-        st.info("Allocation input is active. Shared Consumption % and Child Intensity Index will be shown for granular allocation rows.")
+        st.info("Allocation input is active. For granular allocation rows: Shared Consumption %, Child Intensity Index, Shared Spending, Exclusive Spending Per Child, and Exclusive Spending Per Adult (using Total Adults and Total Children above).")
     
     st.markdown("---")
     
@@ -2120,7 +2174,12 @@ def main():
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         if hierarchical_results:
-            display_df = build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data_display, allocation_lookup=st.session_state.get('allocation_input'))
+            display_df = build_hierarchical_display(
+                hierarchical_results, var_to_node, hierarchy_data_display,
+                allocation_lookup=st.session_state.get('allocation_input'),
+                n_adults=st.session_state.get('total_adults', 2),
+                n_children=st.session_state.get('total_children', 1)
+            )
             # Reorder columns: Code, Description, then numeric/quality, with Granular Allocation after Data Quality
             display_cols = ['Spending Code', 'Spending Description'] + [c for c in display_df.columns if c not in ['Spending Code', 'Spending Description', 'Level']]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]]
@@ -2267,7 +2326,8 @@ def main():
                              "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)",
                              "Sample Size (n)", "Data Quality Category", "Granular Allocation"]
                 if allocation_export is not None:
-                    exp_header += ["Shared Consumption %", "Child Intensity Index"]
+                    exp_header += ["Shared Consumption %", "Child Intensity Index",
+                                  "Shared Spending", "Exclusive Spending Per Child", "Exclusive Spending Per Adult"]
                 all_data.append(exp_header)
                 
                 # Use hierarchical structure if available
@@ -2313,6 +2373,15 @@ def main():
                             v2 = lookup.get('child_intensity')
                             row.append(round(v1, 2) if v1 is not None and isinstance(v1, (int, float)) else "")
                             row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
+                            n_a = max(1, int(st.session_state.get('total_adults', 2)))
+                            n_c = max(0, int(st.session_state.get('total_children', 1)))
+                            if show_alloc:
+                                shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                                row.append(round(shared, 2))
+                                row.append(round(excl_c, 2))
+                                row.append(round(excl_a, 2))
+                            else:
+                                row.extend(["", "", ""])
                         all_data.append(row)
                 else:
                     # Fallback to original structure (no hierarchy; Granular Allocation left blank)
@@ -2334,7 +2403,7 @@ def main():
                             ""  # Granular Allocation: not computed when hierarchy unavailable
                         ]
                         if allocation_export is not None:
-                            data_row.extend(["", ""])  # Shared Consumption % and Child Intensity Index: no granular allocation in fallback
+                            data_row.extend(["", "", "", "", ""])  # Shared %, Child Index, Shared Spending, Excl/Child, Excl/Adult: no granular allocation in fallback
                         all_data.append(data_row)
                 
                 # Convert to DataFrame and write
