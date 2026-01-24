@@ -2319,24 +2319,64 @@ def main():
                 all_data.append([""])
                 all_data.append([""])
                 
-                # BOTTOM SECTION: Expenditure Categories
+                # Prepare allocation and hierarchy for middle section and expenditure table
                 allocation_export = st.session_state.get('allocation_input')
-                all_data.append(["By Expenditure Category"])
-                exp_header = ["Spending Code", "Spending Description", 
-                             "Mean Dollars Per Year", "Variance", "Standard Error", "Coefficient of Variation (%)",
-                             "Sample Size (n)", "Data Quality Category", "Granular Allocation"]
-                if allocation_export is not None:
-                    exp_header += ["Shared Consumption %", "Child Intensity Index",
-                                  "Shared Spending", "Exclusive Spending Per Child", "Exclusive Spending Per Adult"]
-                all_data.append(exp_header)
-                
-                # Use hierarchical structure if available
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
                 hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
                 gran_alloc = compute_granular_allocation(hierarchical_results_export, var_to_node_export, hierarchy_data_export) if hierarchical_results_export else {}
                 
+                # Total Consumption and Gifts = TC001 + MG001
+                total_consumption_gifts = 0
+                if 'Spending Code' in results_df.columns and 'Mean Dollars Per Year' in results_df.columns:
+                    total_consumption_gifts = (
+                        results_df.loc[results_df['Spending Code'] == 'TC001', 'Mean Dollars Per Year'].sum() +
+                        results_df.loc[results_df['Spending Code'] == 'MG001', 'Mean Dollars Per Year'].sum()
+                    )
+                n_a = max(1, int(st.session_state.get('total_adults', 2)))
+                n_c = max(0, int(st.session_state.get('total_children', 1)))
+                
+                # Allocation totals across granular allocation rows (for middle-section percentages and dollars)
+                total_shared_d = 0.0
+                total_excl_adult_d = 0.0
+                total_excl_child_d = 0.0
+                if allocation_export and hierarchical_results_export:
+                    for item in hierarchical_results_export:
+                        ga = gran_alloc.get(item['var_code'], np.nan)
+                        if not _has_granular_value(ga):
+                            continue
+                        lookup = allocation_export.get(item['var_code'], {})
+                        v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
+                        shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                        total_shared_d += shared
+                        total_excl_adult_d += n_a * excl_a
+                        total_excl_child_d += n_c * excl_c
+                total_alloc = total_shared_d + total_excl_adult_d + total_excl_child_d
+                pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
+                pct_excl_a = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
+                pct_excl_c = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
+                
+                # Middle section: Total Consumption and Gifts, N Adults/Children, allocation $ and % (pct to the right of $)
+                all_data.append(["Total Consumption and Gifts", round(total_consumption_gifts, 0) if total_consumption_gifts else 0])
+                all_data.append(["Number of Adults", int(n_a)])
+                all_data.append(["Number of Children", int(n_c)])
+                all_data.append(["Shared Spending - Dollars", round(total_shared_d, 0) if allocation_export else "", "Shared Spending - Percentage", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["Exclusive Spending per Adult - Dollars", round(total_excl_adult_d, 0) if allocation_export else "", "Exclusive Spending per Adult - Percentage", (round(pct_excl_a / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["Exclusive Spending per Child - Dollars", round(total_excl_child_d, 0) if allocation_export else "", "Exclusive Spending per Child - Percentage", (round(pct_excl_c / 100, 4) if allocation_export and total_alloc else "")])
+                
+                all_data.append([""])
+                all_data.append([""])
+                
+                # BOTTOM SECTION: Expenditure Categories (reduced columns only)
+                all_data.append(["By Expenditure Category"])
+                exp_header = ["Spending Description", "Mean Dollars per Year", "Coefficient of Variation", "Data Quality Flag", "Granular Allocation"]
+                if allocation_export is not None:
+                    exp_header += ["Shared Consumption %", "Child Intensity Index", "Shared Spending", "Exclusive Spending per Child", "Exclusive Spending per Adult"]
+                all_data.append(exp_header)
+                exp_header_excel_row = len(all_data)
+                exp_num_cols = len(exp_header)
+                
                 if hierarchical_results_export:
-                    # Build hierarchical display with nested indentation (same as on-screen: L2 under L1, L3 under L2, etc.)
+                    # Build hierarchical display with nested indentation (reduced columns)
                     INDENT_PER_LEVEL = 2
                     for item in hierarchical_results_export:
                         level = int(item['level']) if item.get('level') is not None else 0
@@ -2345,24 +2385,16 @@ def main():
                         description = item['description']
                         ga = gran_alloc.get(var_code, np.nan)
                         ga_display = "" if (ga is None or (isinstance(ga, float) and np.isnan(ga))) else round(ga, 2)
-                        
-                        # Get sample size and quality category from results_df
-                        n = np.nan
                         quality = 'F'
-                        if 'Sample Size (n)' in results_df.columns and 'Data Quality Category' in results_df.columns:
+                        if 'Data Quality Category' in results_df.columns:
                             var_row = results_df[results_df['Spending Code'] == var_code]
                             if len(var_row) > 0:
-                                n = var_row.iloc[0]['Sample Size (n)']
                                 quality = var_row.iloc[0]['Data Quality Category']
-                        
+                        cv = round(item['cv'], 2) if not pd.isna(item['cv']) else ""
                         row = [
-                            var_code,
                             f"{indent}{description}",
                             round(item['mean'], 2),
-                            round(item['variance'], 2),
-                            round(item['std_error'], 2),
-                            round(item['cv'], 2) if not pd.isna(item['cv']) else "",
-                            int(n) if not pd.isna(n) else "",
+                            cv,
                             quality,
                             ga_display
                         ]
@@ -2373,8 +2405,6 @@ def main():
                             v2 = lookup.get('child_intensity')
                             row.append(round(v1, 2) if v1 is not None and isinstance(v1, (int, float)) else "")
                             row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
-                            n_a = max(1, int(st.session_state.get('total_adults', 2)))
-                            n_c = max(0, int(st.session_state.get('total_children', 1)))
                             if show_alloc:
                                 shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
                                 row.append(round(shared, 2))
@@ -2384,26 +2414,19 @@ def main():
                                 row.extend(["", "", ""])
                         all_data.append(row)
                 else:
-                    # Fallback to original structure (no hierarchy; Granular Allocation left blank)
-                    display_cols = ['Spending Code', 'Spending Description', 
-                                  'Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation',
-                                  'Sample Size (n)', 'Data Quality Category']
-                    results_export = results_df[[c for c in display_cols if c in results_df.columns]].copy()
-                    
-                    for _, row in results_export.iterrows():
+                    # Fallback (reduced columns; no hierarchy — Granular Allocation blank)
+                    need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
+                    results_export = results_df[[c for c in need if c in results_df.columns]].copy()
+                    for _, r in results_export.iterrows():
                         data_row = [
-                            row['Spending Code'],
-                            row['Spending Description'],
-                            round(row['Mean Dollars Per Year'], 2),
-                            round(row['Variance'], 2),
-                            round(row['Standard Error'], 2),
-                            round(row['Coefficient of Variation'], 2) if not pd.isna(row['Coefficient of Variation']) else "",
-                            int(row['Sample Size (n)']) if 'Sample Size (n)' in row and not pd.isna(row['Sample Size (n)']) else "",
-                            row['Data Quality Category'] if 'Data Quality Category' in row else 'F',
-                            ""  # Granular Allocation: not computed when hierarchy unavailable
+                            r.get('Spending Description', ''),
+                            round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else "",
+                            round(r['Coefficient of Variation'], 2) if 'Coefficient of Variation' in r and not pd.isna(r.get('Coefficient of Variation')) else "",
+                            r.get('Data Quality Category', 'F'),
+                            ""  # Granular Allocation
                         ]
                         if allocation_export is not None:
-                            data_row.extend(["", "", "", "", ""])  # Shared %, Child Index, Shared Spending, Excl/Child, Excl/Adult: no granular allocation in fallback
+                            data_row.extend(["", "", "", "", ""])
                         all_data.append(data_row)
                 
                 # Convert to DataFrame and write
@@ -2450,15 +2473,67 @@ def main():
                         cell.font = Font(bold=True, size=11)
                         cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
             
-            # Auto-adjust column widths
+            # Expenditure table: column widths (A=49.3, others 10.5) and header wrap+right-align
+            ws.column_dimensions['A'].width = 49.3
+            for c in range(2, exp_num_cols + 1):
+                ws.column_dimensions[get_column_letter(c)].width = 10.5
+            wrap_right = Alignment(horizontal='right', wrap_text=True, vertical='top')
+            for c in range(1, exp_num_cols + 1):
+                cell = ws.cell(row=exp_header_excel_row, column=c)
+                cell.alignment = wrap_right
+            
+            # Expenditure data: number formats (1=text, 2=currency 2dec, 3=0.00, 4=text, 5=currency 2dec; 6=0.00%, 7=0.00, 8–10=currency 2dec when allocation)
+            fmt_currency2 = '$#,##0.00'
+            fmt_currency0 = '$#,##0'
+            fmt_pct = '0.00%'
+            fmt_dec2 = '0.00'
+            for r in range(exp_header_excel_row + 1, max_row + 1):
+                for c in range(1, exp_num_cols + 1):
+                    cell = ws.cell(row=r, column=c)
+                    if c == 1 or c == 4:
+                        cell.number_format = '@'  # text
+                    elif c == 2:
+                        cell.number_format = fmt_currency2
+                    elif c == 3:
+                        cell.number_format = fmt_dec2
+                    elif c == 5:
+                        cell.number_format = fmt_currency2
+                    elif c == 6 and exp_num_cols >= 6:
+                        cell.number_format = fmt_pct
+                    elif c == 7 and exp_num_cols >= 7:
+                        cell.number_format = fmt_dec2
+                    elif c in (8, 9, 10) and exp_num_cols >= c:
+                        cell.number_format = fmt_currency2
+            
+            # Middle section: Total Consumption and Gifts, N Adults/Children, allocation $ and %
+            for r in range(1, max_row + 1):
+                a1 = ws.cell(row=r, column=1).value
+                if a1 and str(a1).strip() == "Total Consumption and Gifts":
+                    ws.cell(row=r, column=2).number_format = fmt_currency0
+                    ws.cell(row=r + 1, column=2).number_format = '0'
+                    ws.cell(row=r + 2, column=2).number_format = '0'
+                    ws.cell(row=r + 3, column=2).number_format = fmt_currency0
+                    ws.cell(row=r + 3, column=4).number_format = fmt_pct
+                    ws.cell(row=r + 4, column=2).number_format = fmt_currency0
+                    ws.cell(row=r + 4, column=4).number_format = fmt_pct
+                    ws.cell(row=r + 5, column=2).number_format = fmt_currency0
+                    ws.cell(row=r + 5, column=4).number_format = fmt_pct
+                    break
+            
+            # Auto-adjust column widths for non-expenditure columns (skip A and 2..exp_num_cols; we already set those)
             for col in ws.columns:
-                max_length = 0
                 col_letter = get_column_letter(col[0].column)
+                col_idx = col[0].column
+                if col_idx == 1:
+                    continue  # already 49.3
+                if 2 <= col_idx <= exp_num_cols:
+                    continue  # already 10.5
+                max_length = 0
                 for cell in col:
                     try:
                         if cell.value:
                             max_length = max(max_length, len(str(cell.value)))
-                    except:
+                    except Exception:
                         pass
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[col_letter].width = adjusted_width
