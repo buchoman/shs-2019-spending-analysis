@@ -910,19 +910,21 @@ def organize_hierarchical_results(results_df, hierarchy_data):
 
 
 def _get_direct_children(var_code, hierarchy_order, var_to_node):
-    """Return direct children of var_code in the tree, from hierarchy_order (depth-first)."""
+    """Return direct children of var_code in the tree, from hierarchy_order (depth-first).
+    Direct children are nodes at level L+1 in the segment after var_code until we rise to level <= L."""
     ho = hierarchy_order or []
     idx = next((i for i, c in enumerate(ho) if c == var_code), -1)
     if idx < 0:
         return []
-    L = int(var_to_node.get(var_code, {}).get('level', 0))
+    L = int(var_to_node.get(var_code, {}).get('level') or 0)
     children = []
     i = idx + 1
     while i < len(ho):
-        l_i = var_to_node.get(ho[i], {}).get('level')
+        l_raw = var_to_node.get(ho[i], {}).get('level')
+        l_i = int(l_raw) if l_raw is not None else None
         if l_i is not None and l_i <= L:
             break
-        if l_i == L + 1:
+        if l_i is not None and l_i == L + 1:
             children.append(ho[i])
         i += 1
     return children
@@ -932,9 +934,10 @@ def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_dat
     """
     Granular Allocation displays a subset of 'Mean Dollars per Year' for items under
     TC001 (Total current consumption) and MG001 (Gifts of money, support payments and
-    charitable contributions). For each branch, choose the most granular level such that
-    *no* item at that level has Data Quality 'F'. If any child at a deeper level has 'F',
-    display at the parent level instead. Values shown are the actual Mean (no scaling).
+    charitable contributions). For each branch, choose the MOST GRANULAR level such that
+    no item at that level has Data Quality 'F': recurse into children only when ALL
+    direct children are in results and non-F; if any direct child is missing or has 'F',
+    display at this node instead. Values shown are the actual Mean (no scaling).
     """
     if not hierarchical_results:
         return {}
@@ -949,17 +952,21 @@ def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_dat
         children = _get_direct_children(node, ho, v2n)
         children_in_results = [c for c in children if c in results_dict]
         if not children_in_results:
-            # Leaf (in our result set): include if in results and not F
+            # Leaf in our result set (or no children in tree): include node if in results and not F
             if node in results_dict and not _qual(results_dict[node].get('quality')):
                 return [node]
             return []
-        # If any direct child has F, we cannot show at the deeper level; use this node
-        any_f = any(_qual(results_dict.get(c, {}).get('quality')) for c in children_in_results)
-        if any_f:
+        # Can we go to the deeper level? Only if EVERY direct child (in tree) is in results AND non-F.
+        # If any is missing or has F, we must show this node to cover the total.
+        any_cannot_go_deeper = any(
+            (c not in results_dict) or _qual(results_dict.get(c, {}).get('quality'))
+            for c in children
+        )
+        if any_cannot_go_deeper:
             if node in results_dict and not _qual(results_dict[node].get('quality')):
                 return [node]
             return []
-        # All children non-F: recurse into children (do not show this node)
+        # All children in results and non-F: recurse into each (do not show this node)
         out = []
         for c in children_in_results:
             out.extend(_recurse(c))
