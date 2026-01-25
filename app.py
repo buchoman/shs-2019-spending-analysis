@@ -1314,8 +1314,15 @@ def main():
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
+            quintile_cutoffs_btn = st.button(
+                "Find Quintile Cutoffs",
+                type="secondary",
+                use_container_width=True,
+                help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation)."
+            )
         else:
             income_range = None
+            quintile_cutoffs_btn = False
     
     # MIDDLE COLUMN: Reference Person Demographics
     with col2:
@@ -1517,11 +1524,14 @@ def main():
     
     st.markdown("---")
     
-    # Calculate and Find Quintile Cutoffs stacked, same size, same primary style
+    # Calculate button (only shown when required allocation fields are set)
     btn_col, _ = st.columns([1, 4])
+    has_required_allocation = (
+        st.session_state.get("total_adults") in [1, 2, 3, 4]
+        and st.session_state.get("total_children") in [0, 1, 2, 3, 4, 5, 6]
+    )
     with btn_col:
-        calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
-        quintile_cutoffs_btn = st.button("Find Quintile Cutoffs", type="primary", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).")
+        calculate_income_range = st.button("Calculate", type="primary", use_container_width=True) if has_required_allocation else False
     
     st.markdown("---")
     
@@ -1711,7 +1721,7 @@ def main():
         .summary-allocation-table tr:last-child td { border-bottom: none; }
         .summary-allocation-table td:last-child { text-align: right; font-weight: 500; }
         /* Spending Percentages: prominent block above the table */
-        .spending-pct-prominent { font-size: 1.15rem; font-weight: 600; color: #1e293b; background: #e8f4f8; padding: 12px 16px; border-radius: 8px; border: 1px solid #2c3e50; margin-bottom: 12px; }
+        .spending-pct-prominent { font-size: 1.1rem; font-weight: 600; color: #1e293b; background: #e8f4f8; padding: 10px 14px; border-radius: 8px; border: 1px solid #2c3e50; margin-bottom: 12px; width: 100%; box-sizing: border-box; }
         .spending-pct-prominent .pct-val { font-size: 1.3rem; font-weight: 700; color: #1a365d; }
         </style>
         <script>
@@ -1804,13 +1814,9 @@ def main():
             else:
                 lbl1, lbl2, lbl3 = "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"
                 d1 = d2 = d3 = "—"
-            # Spending Percentages: prominent block when allocation is loaded
-            if allocation_display and total_alloc:
-                pct_block = f'''<div class="spending-pct-prominent">Spending percentages: Shared <span class="pct-val">{pct_shared:.2f}%</span> · Exclusive Adults <span class="pct-val">{pct_agg_adults:.2f}%</span> · Exclusive Children <span class="pct-val">{pct_agg_children:.2f}%</span></div>'''
-                st.markdown(pct_block, unsafe_allow_html=True)
             summary_table_html = f'''
             <table class="summary-allocation-table">
-              <thead><tr><th>Labels</th><th>Dollars</th></tr></thead>
+              <thead><tr><th>Allocation of Total Consumption and Gifts</th><th>Dollars</th></tr></thead>
               <tbody>
                 <tr><td>{lbl1}</td><td>{d1}</td></tr>
                 <tr><td>{lbl2}</td><td>{d2}</td></tr>
@@ -1819,6 +1825,16 @@ def main():
             </table>'''
             tab_col, pie_col = st.columns(2)
             with tab_col:
+                # Spending Percentages: prominent block when allocation is loaded
+                if allocation_display and total_alloc:
+                    pct_block = (
+                        f'''<div class="spending-pct-prominent">'''
+                        f'''Shared <span class="pct-val">{pct_shared:.2f}%</span> · '''
+                        f'''Exclusive – Adults: <span class="pct-val">{pct_agg_adults:.2f}%</span> · '''
+                        f'''Exclusive – Children: <span class="pct-val">{pct_agg_children:.2f}%</span>'''
+                        f'''</div>'''
+                    )
+                    st.markdown(pct_block, unsafe_allow_html=True)
                 st.markdown(summary_table_html, unsafe_allow_html=True)
             with pie_col:
                 if allocation_display and total_alloc and total_alloc > 0:
@@ -1826,8 +1842,8 @@ def main():
                     pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
                     try:
                         import plotly.graph_objects as go
-                        fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=14))])
-                        fig.update_layout(margin=dict(t=24, b=20, l=20, r=20), height=380, showlegend=False, font=dict(size=13))
+                        fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=16))])
+                        fig.update_layout(margin=dict(t=16, b=16, l=16, r=16), height=320, showlegend=False, font=dict(size=14))
                         st.plotly_chart(fig, use_container_width=True)
                     except Exception:
                         pass
