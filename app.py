@@ -1484,16 +1484,15 @@ def main():
     
     st.markdown("**Allocation Input (optional)**")
     st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
-    # Download: anyone can download the form (.xlsx)
+    # Download and Upload: password CPC123 required for both
     alloc_form_path = Path("Allocation Input Form.xlsx")
-    if alloc_form_path.exists():
-        form_bytes = alloc_form_path.read_bytes()
-        st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
-    else:
-        st.caption("Allocation Input Form.xlsx not found in project root; add it to enable download.")
-    # Upload: password required (CPC123)
-    pw = st.text_input("Password to upload a new form (required to replace)", type="password", key="alloc_upload_pw", help="Enter CPC123 to enable upload.")
+    pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw", help="Enter CPC123 to download the form (to tweak percentages) or to upload a new form.")
     if (pw or "") == "CPC123":
+        if alloc_form_path.exists():
+            form_bytes = alloc_form_path.read_bytes()
+            st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
+        else:
+            st.caption("Allocation Input Form.xlsx not found in project root; add it to enable download.")
         uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
         if uploaded is not None:
             parsed, err = parse_allocation_input_excel(uploaded)
@@ -1507,7 +1506,7 @@ def main():
                     pass
                 st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
     else:
-        st.caption("Enter password CPC123 to upload and replace the allocation form.")
+        st.caption("Enter password CPC123 to download or upload the Allocation Input Form.")
     if st.session_state.get('allocation_input'):
         st.info("Allocation input is active.")
     
@@ -1551,156 +1550,171 @@ def main():
                 tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
                 st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
     
-    # Calculate estimates when "Calculate by Income Range" is clicked
+    # Calculate: require password CPC123 after clicking Calculate
     if calculate_income_range:
-        _ta = st.session_state.get("total_adults", "— Select —")
-        _tc = st.session_state.get("total_children", "— Select —")
-        if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
-            st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
-            return
-        if _tc == "— Select —" or _tc not in [0, 1, 2, 3, 4, 5, 6]:
-            st.error("Please select **Total Children** (0–6) in Allocation: Household Composition before calculating.")
-            return
-        st.session_state["allocation_n_adults"] = int(_ta)
-        st.session_state["allocation_n_children"] = int(_tc)
-        if len(bootstrap_cols) == 0:
-            st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
-            return
-        
-        # Ensure we're using the filtered data with income range
-        filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
-        
-        st.info(f"Using {len(bootstrap_cols)} bootstrap weights for variance estimation.")
-        
-        # Overall progress tracking
-        overall_progress_bar = st.progress(0)
-        overall_status_text = st.empty()
-        
-        # Phase 1: Calculate individual spending estimates (70% of progress)
-        overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
-        results = []
-        
-        # Get spending variables that exist in the data - use ALL expenditure categories
-        # Handle _C and _D versions: check if base variable or _C/_D versions exist
-        def variable_exists(df, var):
-            """Check if variable exists in any form (base, _C, or _D)"""
-            return (var in df.columns or 
-                   (var + '_C') in df.columns or 
-                   (var + '_D') in df.columns)
-        
-        # Use the complete hierarchy tree (hierarchy_order) so all top-level and branches are shown
-        ho = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
-        if ho:
-            all_hierarchy_vars = ho
-        else:
-            all_hierarchy_vars = sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
-        available_spending_vars = [
-            var for var in all_hierarchy_vars
-            if variable_exists(filtered_df, var)
-        ]
-        
-        if len(available_spending_vars) == 0:
-            st.error("No spending variables found in the dataset.")
-            overall_progress_bar.empty()
-            overall_status_text.empty()
-            return
-        
-        # Pre-build category lookup dictionary for faster lookups
-        var_to_category = {}
-        for cat, vars_list in SPENDING_CATEGORIES.items():
-            for var in vars_list:
-                var_to_category[var] = cat
-        
-        # Pre-extract weight arrays for fast numpy-based bootstrap (avoids repeated .loc and DataFrame ops)
-        w_main = np.asarray(filtered_df['WeightD'], dtype=np.float64)
-        W_bootstrap = filtered_df[bootstrap_cols].to_numpy(dtype=np.float64)
-        
-        # Calculate for each spending variable (optimized: single get_variable_value, numpy mean/n, fast bootstrap)
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        total_vars = len(available_spending_vars)
-        
-        for idx, var in enumerate(available_spending_vars):
-            status_text.text(f"Processing {var} ({idx + 1}/{total_vars})...")
-            
-            # Single get_variable_value; then numpy for mean, n, and _bootstrap_variance_fast
-            var_vals = get_variable_value(filtered_df, var)
-            v = np.asarray(var_vals, dtype=np.float64)
-            mask_main = np.isfinite(v) & (w_main > 0)
-            n = int(np.sum(mask_main))
-            if n == 0:
-                mean_est = np.nan
-                variance = np.nan
+        st.session_state["pending_calculate"] = True
+    
+    if st.session_state.get("pending_calculate"):
+        pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
+        c1, c2 = st.columns(2)
+        with c1:
+            confirm_calc = st.button("Confirm and run", key="confirm_calc")
+        with c2:
+            cancel_calc = st.button("Cancel", key="cancel_calc")
+        if cancel_calc:
+            del st.session_state["pending_calculate"]
+            st.rerun()
+        if confirm_calc:
+            if (pwd_calc or "") != "CPC123":
+                st.error("Incorrect password.")
             else:
-                mean_est = float(np.sum(v[mask_main] * w_main[mask_main]) / np.sum(w_main[mask_main]))
-                variance = _bootstrap_variance_fast(v, w_main, W_bootstrap, mean_est)
-            std_error = np.sqrt(variance) if np.isfinite(variance) else np.nan
-            
-            # Calculate CV
-            cv = (std_error / mean_est * 100) if np.isfinite(mean_est) and mean_est != 0 else np.nan
-            
-            # Get region information if available
-            region = None
-            if 'PROV' in filtered_df.columns:
-                region = filtered_df['PROV'].mode().iloc[0] if len(filtered_df['PROV'].mode()) > 0 else None
-            
-            # Determine data quality category
-            quality_category = determine_data_quality_category(cv, n=n, region=region)
-            
-            # Find category (using pre-built lookup)
-            category = var_to_category.get(var, "Other")
-            
-            # Get spending description
-            spending_desc = SPENDING_DESCRIPTIONS.get(var, "Spending description not available")
-            
-            results.append({
-                'Spending Code': var,
-                'Spending Description': spending_desc,
-                'Spending Category': category,
-                'Mean Dollars Per Year': mean_est,
-                'Variance': variance,
-                'Standard Error': std_error,
-                'Coefficient of Variation': cv,
-                'Sample Size (n)': n,
-                'Data Quality Category': quality_category
-            })
-            
-            # Update both progress bars
-            progress_bar.progress((idx + 1) / total_vars)
-            overall_progress_bar.progress(0.7 * (idx + 1) / total_vars)
-        
-        st.session_state.results = pd.DataFrame(results)
-        st.session_state.hierarchy_data = hierarchy_data  # Store hierarchy for later use
-        progress_bar.empty()
-        status_text.empty()
-        overall_progress_bar.progress(1.0)
-        
-        # Calculate average household income and current consumption
-        avg_household_income = calculate_weighted_mean(filtered_df, 'HH_TotInc')
-        avg_income_variance = calculate_bootstrap_variance(filtered_df, 'HH_TotInc', bootstrap_cols=bootstrap_cols)
-        avg_income_se = np.sqrt(avg_income_variance) if not np.isnan(avg_income_variance) else np.nan
-        
-        # Calculate TC001 (Total Current Consumption) - handles _C and _D versions
-        tc001_values = get_variable_value(filtered_df, 'TC001')
-        if tc001_values.notna().any():
-            avg_current_consumption = calculate_weighted_mean(filtered_df, 'TC001')
-            avg_consumption_variance = calculate_bootstrap_variance(filtered_df, 'TC001', bootstrap_cols=bootstrap_cols)
-            avg_consumption_se = np.sqrt(avg_consumption_variance) if not np.isnan(avg_consumption_variance) else np.nan
-        else:
-            avg_current_consumption = np.nan
-            avg_consumption_se = np.nan
-        
-        st.session_state.avg_household_income = avg_household_income
-        st.session_state.avg_income_se = avg_income_se
-        st.session_state.avg_current_consumption = avg_current_consumption
-        st.session_state.avg_consumption_se = avg_consumption_se
-        
-        overall_progress_bar.progress(1.0)
-        overall_progress_bar.empty()
-        overall_status_text.empty()
-        st.success("Calculations complete!")
-        # Store calculation mode in session state
-        st.session_state['calculation_mode'] = "income_range"
+                st.session_state["pending_calculate"] = False
+                _ta = st.session_state.get("total_adults", "— Select —")
+                _tc = st.session_state.get("total_children", "— Select —")
+                if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
+                    st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
+                    return
+                if _tc == "— Select —" or _tc not in [0, 1, 2, 3, 4, 5, 6]:
+                    st.error("Please select **Total Children** (0–6) in Allocation: Household Composition before calculating.")
+                    return
+                st.session_state["allocation_n_adults"] = int(_ta)
+                st.session_state["allocation_n_children"] = int(_tc)
+                if len(bootstrap_cols) == 0:
+                    st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
+                    return
+                
+                filtered_df = filter_data(df, st.session_state.filters, income_range=st.session_state.income_range)
+                
+                st.info(f"Using {len(bootstrap_cols)} bootstrap weights for variance estimation.")
+                
+                # Overall progress tracking
+                overall_progress_bar = st.progress(0)
+                overall_status_text = st.empty()
+                
+                # Phase 1: Calculate individual spending estimates (70% of progress)
+                overall_status_text.text("Phase 1 of 2: Calculating individual spending estimates...")
+                results = []
+                
+                # Get spending variables that exist in the data - use ALL expenditure categories
+                # Handle _C and _D versions: check if base variable or _C/_D versions exist
+                def variable_exists(df, var):
+                    """Check if variable exists in any form (base, _C, or _D)"""
+                    return (var in df.columns or 
+                           (var + '_C') in df.columns or 
+                           (var + '_D') in df.columns)
+                
+                # Use the complete hierarchy tree (hierarchy_order) so all top-level and branches are shown
+                ho = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
+                if ho:
+                    all_hierarchy_vars = ho
+                else:
+                    all_hierarchy_vars = sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
+                available_spending_vars = [
+                    var for var in all_hierarchy_vars
+                    if variable_exists(filtered_df, var)
+                ]
+                
+                if len(available_spending_vars) == 0:
+                    st.error("No spending variables found in the dataset.")
+                    overall_progress_bar.empty()
+                    overall_status_text.empty()
+                    return
+                
+                # Pre-build category lookup dictionary for faster lookups
+                var_to_category = {}
+                for cat, vars_list in SPENDING_CATEGORIES.items():
+                    for var in vars_list:
+                        var_to_category[var] = cat
+                
+                # Pre-extract weight arrays for fast numpy-based bootstrap (avoids repeated .loc and DataFrame ops)
+                w_main = np.asarray(filtered_df['WeightD'], dtype=np.float64)
+                W_bootstrap = filtered_df[bootstrap_cols].to_numpy(dtype=np.float64)
+                
+                # Calculate for each spending variable (optimized: single get_variable_value, numpy mean/n, fast bootstrap)
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                total_vars = len(available_spending_vars)
+                
+                for idx, var in enumerate(available_spending_vars):
+                    status_text.text(f"Processing {var} ({idx + 1}/{total_vars})...")
+                    
+                    # Single get_variable_value; then numpy for mean, n, and _bootstrap_variance_fast
+                    var_vals = get_variable_value(filtered_df, var)
+                    v = np.asarray(var_vals, dtype=np.float64)
+                    mask_main = np.isfinite(v) & (w_main > 0)
+                    n = int(np.sum(mask_main))
+                    if n == 0:
+                        mean_est = np.nan
+                        variance = np.nan
+                    else:
+                        mean_est = float(np.sum(v[mask_main] * w_main[mask_main]) / np.sum(w_main[mask_main]))
+                        variance = _bootstrap_variance_fast(v, w_main, W_bootstrap, mean_est)
+                    std_error = np.sqrt(variance) if np.isfinite(variance) else np.nan
+                    
+                    # Calculate CV
+                    cv = (std_error / mean_est * 100) if np.isfinite(mean_est) and mean_est != 0 else np.nan
+                    
+                    # Get region information if available
+                    region = None
+                    if 'PROV' in filtered_df.columns:
+                        region = filtered_df['PROV'].mode().iloc[0] if len(filtered_df['PROV'].mode()) > 0 else None
+                    
+                    # Determine data quality category
+                    quality_category = determine_data_quality_category(cv, n=n, region=region)
+                    
+                    # Find category (using pre-built lookup)
+                    category = var_to_category.get(var, "Other")
+                    
+                    # Get spending description
+                    spending_desc = SPENDING_DESCRIPTIONS.get(var, "Spending description not available")
+                    
+                    results.append({
+                        'Spending Code': var,
+                        'Spending Description': spending_desc,
+                        'Spending Category': category,
+                        'Mean Dollars Per Year': mean_est,
+                        'Variance': variance,
+                        'Standard Error': std_error,
+                        'Coefficient of Variation': cv,
+                        'Sample Size (n)': n,
+                        'Data Quality Category': quality_category
+                    })
+                    
+                    # Update both progress bars
+                    progress_bar.progress((idx + 1) / total_vars)
+                    overall_progress_bar.progress(0.7 * (idx + 1) / total_vars)
+                
+                st.session_state.results = pd.DataFrame(results)
+                st.session_state.hierarchy_data = hierarchy_data  # Store hierarchy for later use
+                progress_bar.empty()
+                status_text.empty()
+                overall_progress_bar.progress(1.0)
+                
+                # Calculate average household income and current consumption
+                avg_household_income = calculate_weighted_mean(filtered_df, 'HH_TotInc')
+                avg_income_variance = calculate_bootstrap_variance(filtered_df, 'HH_TotInc', bootstrap_cols=bootstrap_cols)
+                avg_income_se = np.sqrt(avg_income_variance) if not np.isnan(avg_income_variance) else np.nan
+                
+                # Calculate TC001 (Total Current Consumption) - handles _C and _D versions
+                tc001_values = get_variable_value(filtered_df, 'TC001')
+                if tc001_values.notna().any():
+                    avg_current_consumption = calculate_weighted_mean(filtered_df, 'TC001')
+                    avg_consumption_variance = calculate_bootstrap_variance(filtered_df, 'TC001', bootstrap_cols=bootstrap_cols)
+                    avg_consumption_se = np.sqrt(avg_consumption_variance) if not np.isnan(avg_consumption_variance) else np.nan
+                else:
+                    avg_current_consumption = np.nan
+                    avg_consumption_se = np.nan
+                
+                st.session_state.avg_household_income = avg_household_income
+                st.session_state.avg_income_se = avg_income_se
+                st.session_state.avg_current_consumption = avg_current_consumption
+                st.session_state.avg_consumption_se = avg_consumption_se
+                
+                overall_progress_bar.progress(1.0)
+                overall_progress_bar.empty()
+                overall_status_text.empty()
+                st.success("Calculations complete!")
+                st.session_state['calculation_mode'] = "income_range"
     
     # Display results based on calculation mode
     calculation_mode_display = st.session_state.get('calculation_mode', None)
