@@ -1485,8 +1485,12 @@ def main():
     st.markdown("**Allocation Input (optional)**")
     st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
     # Download and Upload: password CPC123 required for both
+    st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
+    # Download and Upload: password required for both
     alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
-    pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw", help="Enter CPC123 to download the form (to tweak percentages) or to upload a new form.")
+    pw_col, _ = st.columns([1, 4])
+    with pw_col:
+        pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw")
     if (pw or "") == "CPC123":
         st.session_state["password_verified"] = True
         if alloc_form_path.exists():
@@ -1508,6 +1512,10 @@ def main():
                 st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
     else:
         st.caption("Enter password CPC123 to download or upload the Allocation Input Form.")
+        st.caption("Enter password to download or upload the Allocation Input Form.")
+    if st.session_state.get('allocation_input'):
+        st.info("Allocation input is active.")
+    
     st.markdown("---")
     
     # Calculate and Find Quintile Cutoffs stacked, same size, same primary style
