@@ -1419,7 +1419,7 @@ def main():
                 filters['P5to15YN'] = selected_p5to15
         
         st.subheader("Allocation: Household Composition *")
-        st.markdown("*Required before Calculate by Income Range. You must choose a value (do not leave as \"— Select —\").*")
+        st.markdown("*Required before Calculate. You must choose a value (do not leave as \"— Select —\").*")
         total_adults = st.selectbox(
             "Total Adults *",
             options=["— Select —", 1, 2, 3, 4],
@@ -1494,15 +1494,13 @@ def main():
     
     st.markdown("---")
     
-    # Binary choice: Two buttons side by side
+    # Binary choice: Calculate (primary, smaller) and Quintile cutoffs (distinctive, secondary style)
     st.markdown("**Select Calculation Mode:**")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        calculate_income_range = st.button("Calculate by Income Range", type="primary", use_container_width=True)
-    
-    with col2:
-        quintile_cutoffs_btn = st.button("Quintile cutoffs", type="primary", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).")
+    btn_col1, btn_col2 = st.columns([1, 3])
+    with btn_col1:
+        calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
+    with btn_col2:
+        quintile_cutoffs_btn = st.button("Quintile cutoffs", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).")
     
     st.markdown("---")
     
@@ -1767,33 +1765,37 @@ def main():
         per_child_d = (total_excl_child_d / n_c) if n_c else 0
         pct_per_adult = (per_adult_d / total_alloc * 100) if total_alloc else 0
         pct_per_child = (per_child_d / total_alloc * 100) if total_alloc else 0
+        pct_agg_adults = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
+        pct_agg_children = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
         
-        sc1, sc2, sc3 = st.columns(3)
-        with sc1:
+        # Web-only layout: stacked metrics in left margin, then table (left) + pie (right)
+        margin_col, main_col = st.columns([1, 4])
+        with margin_col:
             st.metric("Total Consumption and Gifts", f"${round(total_consumption_gifts, 0):,.0f}" if total_consumption_gifts else "—")
-        with sc2:
             st.metric("Number of Adults", int(n_a))
-        with sc3:
             st.metric("Number of Children", int(n_c))
-        summary_rows = [
-            {" ": "Shared Spending", "Dollars": f"${round(total_shared_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_shared:.2f}%" if (allocation_display and total_alloc) else "—"},
-            {" ": "Exclusive Spending per Adult", "Dollars": f"${round(per_adult_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_per_adult:.2f}%" if (allocation_display and total_alloc) else "—"},
-            {" ": "Exclusive Spending per Child", "Dollars": f"${round(per_child_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_per_child:.2f}%" if (allocation_display and total_alloc) else "—"},
-        ]
-        st.caption("Dollars and Percent. Exclusive amounts are per Adult and per Child. When allocation form is not loaded, values show —.")
-        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, height=140)
-        
-        # Pie chart: budget allocation among Shared, Adult 1..n, Child 1..n (when allocation loaded and total > 0)
-        if allocation_display and total_alloc and total_alloc > 0:
-            pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
-            pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
-            try:
-                import plotly.graph_objects as go
-                fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside")])
-                fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-            except Exception:
-                pass
+        with main_col:
+            # Table: Shared + Exclusive with new web-only labels: "Exclusive Spending: Adult(s) = N × Y.YY% = Z.ZZ%" (Y=per-adult, Z=aggregate)
+            summary_rows = [
+                {" ": "Shared Spending", "Dollars": f"${round(total_shared_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_shared:.2f}%" if (allocation_display and total_alloc) else "—"},
+                {" ": f"Exclusive Spending: Adult(s) = {n_a} × {pct_per_adult:.2f}% = {pct_agg_adults:.2f}%" if (allocation_display and total_alloc) else "Exclusive Spending per Adult", "Dollars": f"${round(per_adult_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_agg_adults:.2f}%" if (allocation_display and total_alloc) else "—"},
+                {" ": f"Exclusive Spending: Child(ren) = {n_c} × {pct_per_child:.2f}% = {pct_agg_children:.2f}%" if (allocation_display and total_alloc) else "Exclusive Spending per Child", "Dollars": f"${round(per_child_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_agg_children:.2f}%" if (allocation_display and total_alloc) else "—"},
+            ]
+            st.caption("Dollars and Percent. Exclusive: per-adult/per-child dollars; label shows N × per-unit % = aggregate %. When allocation form is not loaded, values show —.")
+            tab_col, pie_col = st.columns(2)
+            with tab_col:
+                st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, height=140)
+            with pie_col:
+                if allocation_display and total_alloc and total_alloc > 0:
+                    pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
+                    pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
+                    try:
+                        import plotly.graph_objects as go
+                        fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside")])
+                        fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=False)
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception:
+                        pass
         
         # Display by expenditure category (same columns as Excel)
         st.subheader("By Expenditure Category")
