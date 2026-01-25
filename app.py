@@ -1658,7 +1658,9 @@ def main():
             st.session_state["pending_calculate"] = True
     
     if st.session_state.get("pending_calculate"):
-        pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
+        pwd_calc_col, _ = st.columns([1, 4])
+        with pwd_calc_col:
+            pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
         c1, c2 = st.columns(2)
         with c1:
             confirm_calc = st.button("Confirm and run", key="confirm_calc")
