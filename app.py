@@ -1465,11 +1465,13 @@ def main():
     
     st.markdown("**Allocation Input (optional)**")
     st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
-    # Download: anyone can download the form
+    # Download: anyone can download the form (.xlsx)
     alloc_form_path = Path("Allocation Input Form.xlsx")
     if alloc_form_path.exists():
         form_bytes = alloc_form_path.read_bytes()
-        st.download_button("Download Allocation Input Form (Excel)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
+        st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
+    else:
+        st.caption("Allocation Input Form.xlsx not found in project root; add it to enable download.")
     # Upload: password required (CPC123)
     pw = st.text_input("Password to upload a new form (required to replace)", type="password", key="alloc_upload_pw", help="Enter CPC123 to enable upload.")
     if (pw or "") == "CPC123":
@@ -2219,6 +2221,18 @@ def main():
         ]
         st.caption("Dollars and Percent. Exclusive amounts are per Adult and per Child. When allocation form is not loaded, values show —.")
         st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, height=140)
+        
+        # Pie chart: budget allocation among Shared, Adult 1..n, Child 1..n (when allocation loaded and total > 0)
+        if allocation_display and total_alloc and total_alloc > 0:
+            pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
+            pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
+            try:
+                import plotly.graph_objects as go
+                fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside")])
+                fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=True, legend=dict(orientation="h", yanchor="top", y=-0.05, xanchor="center", x=0.5))
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception:
+                pass
         
         # Display by expenditure category (same columns as Excel)
         st.subheader("By Expenditure Category")
