@@ -1485,7 +1485,7 @@ def main():
     st.markdown("**Allocation Input (optional)**")
     st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
     # Download and Upload: password CPC123 required for both
-    alloc_form_path = Path("Allocation Input Form.xlsx")
+    alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
     pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw", help="Enter CPC123 to download the form (to tweak percentages) or to upload a new form.")
     if (pw or "") == "CPC123":
         if alloc_form_path.exists():
@@ -1754,6 +1754,9 @@ def main():
         .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #fafbfc; font-size: 1.05rem; }
         .summary-allocation-table tr:last-child td { border-bottom: none; }
         .summary-allocation-table td:last-child { text-align: right; font-weight: 500; }
+        /* Spending Percentages: prominent block above the table */
+        .spending-pct-prominent { font-size: 1.15rem; font-weight: 600; color: #1e293b; background: #e8f4f8; padding: 12px 16px; border-radius: 8px; border: 1px solid #2c3e50; margin-bottom: 12px; }
+        .spending-pct-prominent .pct-val { font-size: 1.3rem; font-weight: 700; color: #1a365d; }
         </style>
         <script>
         // Right-justify specific column headers and cells
@@ -1845,6 +1848,10 @@ def main():
             else:
                 lbl1, lbl2, lbl3 = "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"
                 d1 = d2 = d3 = "—"
+            # Spending Percentages: prominent block when allocation is loaded
+            if allocation_display and total_alloc:
+                pct_block = f'''<div class="spending-pct-prominent">Spending percentages: Shared <span class="pct-val">{pct_shared:.2f}%</span> · Exclusive Adults <span class="pct-val">{pct_agg_adults:.2f}%</span> · Exclusive Children <span class="pct-val">{pct_agg_children:.2f}%</span></div>'''
+                st.markdown(pct_block, unsafe_allow_html=True)
             summary_table_html = f'''
             <table class="summary-allocation-table">
               <thead><tr><th>Labels</th><th>Dollars</th></tr></thead>
@@ -1854,7 +1861,6 @@ def main():
                 <tr><td>{lbl3}</td><td>{d3}</td></tr>
               </tbody>
             </table>'''
-            st.caption("Exclusive: per-adult/per-child dollars; label shows N × per-unit % = aggregate %. When allocation form is not loaded, values show —.")
             tab_col, pie_col = st.columns(2)
             with tab_col:
                 st.markdown(summary_table_html, unsafe_allow_html=True)
