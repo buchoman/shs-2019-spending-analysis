@@ -1314,12 +1314,33 @@ def main():
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
-            quintile_cutoffs_btn = st.button(
-                "Find Quintile Cutoffs",
-                type="secondary",
-                use_container_width=True,
-                help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation)."
+            st.markdown(
+                """
+                <style>
+                [data-testid="baseButton-secondary"] > button {
+                    background-color: #e9f2ff;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
             )
+            st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
+            quintile_cols = st.columns([1, 4])
+            with quintile_cols[0]:
+                quintile_cutoffs_btn = st.button(
+                    "Find Quintile Cutoffs",
+                    type="secondary",
+                    use_container_width=True,
+                    help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
+                    key="quintile_cutoffs_btn",
+                )
+            with quintile_cols[1]:
+                if st.session_state.get("quintile_cutoffs_text"):
+                    st.markdown(
+                        st.session_state["quintile_cutoffs_text"],
+                        unsafe_allow_html=True,
+                    )
+            st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
         else:
             income_range = None
             quintile_cutoffs_btn = False
@@ -1533,6 +1554,7 @@ def main():
     
     # Quintile cutoffs only (efficient: filter + weighted percentiles, no spending calc)
     if quintile_cutoffs_btn:
+        st.session_state["quintile_cutoffs_text"] = None
         fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
         if 'HH_TotInc' not in fq.columns:
             st.error("Household total income (HH_TotInc) not found.")
@@ -1556,9 +1578,12 @@ def main():
                     i = min(i, len(inc_s) - 1)
                     cutoffs.append(float(inc_s[i]))
                 st.session_state.quintile_cutoffs = cutoffs
-                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
-                tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
-                st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
+                st.session_state["quintile_cutoffs_text"] = (
+                    f"Q1–Q2: ${cutoffs[0]:,.0f}&nbsp;&nbsp;|&nbsp;&nbsp;"
+                    f"Q2–Q3: ${cutoffs[1]:,.0f}&nbsp;&nbsp;|&nbsp;&nbsp;"
+                    f"Q3–Q4: ${cutoffs[2]:,.0f}&nbsp;&nbsp;|&nbsp;&nbsp;"
+                    f"Q4–Q5: ${cutoffs[3]:,.0f}"
+                )
     
     def _run_calculation():
         _ta = st.session_state.get("total_adults", "— Select —")
