@@ -819,6 +819,25 @@ def calculate_weighted_mean(df, var, weight_col='WeightD'):
     
     return weighted_sum / total_weight
 
+def _bootstrap_variance_fast(v, w_main, W_bs, main_estimate):
+    """Bootstrap variance using numpy; v, w_main (n,), W_bs (n x B)."""
+    if not np.isfinite(main_estimate) or W_bs.size == 0:
+        return np.nan
+    bs_estimates = []
+    for b in range(W_bs.shape[1]):
+        m = np.isfinite(v) & (W_bs[:, b] > 0)
+        if m.sum() == 0:
+            continue
+        s = np.sum(v[m] * W_bs[m, b])
+        t = np.sum(W_bs[m, b])
+        if t > 0:
+            e = s / t
+            if np.isfinite(e):
+                bs_estimates.append(e)
+    if len(bs_estimates) == 0:
+        return np.nan
+    return float(np.mean((np.array(bs_estimates, dtype=np.float64) - main_estimate) ** 2))
+
 def calculate_bootstrap_variance(df, var, weight_col='WeightD', bootstrap_cols=None):
     """Calculate bootstrap variance using bootstrap weights, handling _C and _D versions"""
     if bootstrap_cols is None or len(bootstrap_cols) == 0:
@@ -1490,7 +1509,7 @@ def main():
     else:
         st.caption("Enter password CPC123 to upload and replace the allocation form.")
     if st.session_state.get('allocation_input'):
-        st.info("Allocation input is active. For granular allocation rows: Shared Consumption %, Child Intensity Index, Shared Spending, Exclusive Spending Per Child, and Exclusive Spending Per Adult (using Total Adults and Total Children above).")
+        st.info("Allocation input is active.")
     
     st.markdown("---")
     
@@ -1592,7 +1611,11 @@ def main():
             for var in vars_list:
                 var_to_category[var] = cat
         
-        # Calculate for each spending variable (optimized with vectorized operations where possible)
+        # Pre-extract weight arrays for fast numpy-based bootstrap (avoids repeated .loc and DataFrame ops)
+        w_main = np.asarray(filtered_df['WeightD'], dtype=np.float64)
+        W_bootstrap = filtered_df[bootstrap_cols].to_numpy(dtype=np.float64)
+        
+        # Calculate for each spending variable (optimized: single get_variable_value, numpy mean/n, fast bootstrap)
         progress_bar = st.progress(0)
         status_text = st.empty()
         total_vars = len(available_spending_vars)
@@ -1600,20 +1623,25 @@ def main():
         for idx, var in enumerate(available_spending_vars):
             status_text.text(f"Processing {var} ({idx + 1}/{total_vars})...")
             
-            mean_est = calculate_weighted_mean(filtered_df, var)
-            variance = calculate_bootstrap_variance(filtered_df, var, bootstrap_cols=bootstrap_cols)
-            std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
+            # Single get_variable_value; then numpy for mean, n, and _bootstrap_variance_fast
+            var_vals = get_variable_value(filtered_df, var)
+            v = np.asarray(var_vals, dtype=np.float64)
+            mask_main = np.isfinite(v) & (w_main > 0)
+            n = int(np.sum(mask_main))
+            if n == 0:
+                mean_est = np.nan
+                variance = np.nan
+            else:
+                mean_est = float(np.sum(v[mask_main] * w_main[mask_main]) / np.sum(w_main[mask_main]))
+                variance = _bootstrap_variance_fast(v, w_main, W_bootstrap, mean_est)
+            std_error = np.sqrt(variance) if np.isfinite(variance) else np.nan
             
             # Calculate CV
-            cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
-            
-            # Calculate sample size (n)
-            n = calculate_sample_size(filtered_df, var)
+            cv = (std_error / mean_est * 100) if np.isfinite(mean_est) and mean_est != 0 else np.nan
             
             # Get region information if available
             region = None
             if 'PROV' in filtered_df.columns:
-                # Get the most common province in filtered data (or could use a different logic)
                 region = filtered_df['PROV'].mode().iloc[0] if len(filtered_df['PROV'].mode()) > 0 else None
             
             # Determine data quality category
@@ -1700,16 +1728,16 @@ def main():
         div[data-testid="stDataFrame"] thead tr th {
             background-color: #f0f1f2 !important;
         }
-        /* Left margin metrics: smaller font to balance table/pie; light panel look */
-        .metrics-margin { font-size: 0.85rem; background: #f8f9fa; padding: 10px 12px; border-radius: 8px; border: 1px solid #e9ecef; }
-        .metrics-margin .metric-label { display: block; color: #6c757d; font-size: 0.8rem; margin-bottom: 2px; }
-        .metrics-margin .metric-value { font-size: 1.05rem; font-weight: 600; color: #1e293b; }
+        /* Left margin metrics and summary table: larger fonts to match pie chart */
+        .metrics-margin { font-size: 1rem; background: #f8f9fa; padding: 10px 12px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .metrics-margin .metric-label { display: block; color: #6c757d; font-size: 0.95rem; margin-bottom: 2px; }
+        .metrics-margin .metric-value { font-size: 1.15rem; font-weight: 600; color: #1e293b; }
         .metrics-margin .metric-item { padding: 8px 0; border-bottom: 1px solid #e9ecef; }
         .metrics-margin .metric-item:last-child { border-bottom: none; padding-bottom: 0; }
-        /* Summary allocation table: 2 cols, larger readable font, polished */
-        .summary-allocation-table { font-size: 1rem; border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-        .summary-allocation-table th { background: #2c3e50; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 0.95rem; }
-        .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #fafbfc; }
+        /* Summary allocation table: 2 cols, larger font to match pie */
+        .summary-allocation-table { font-size: 1.1rem; border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .summary-allocation-table th { background: #2c3e50; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 1.05rem; }
+        .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #fafbfc; font-size: 1.05rem; }
         .summary-allocation-table tr:last-child td { border-bottom: none; }
         .summary-allocation-table td:last-child { text-align: right; font-weight: 500; }
         </style>
@@ -1823,7 +1851,7 @@ def main():
                     try:
                         import plotly.graph_objects as go
                         fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=14))])
-                        fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=False, font=dict(size=13))
+                        fig.update_layout(margin=dict(t=24, b=20, l=20, r=20), height=380, showlegend=False, font=dict(size=13))
                         st.plotly_chart(fig, use_container_width=True)
                     except Exception:
                         pass
