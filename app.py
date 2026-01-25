@@ -1483,6 +1483,8 @@ def main():
         st.session_state['allocation_input'] = cached if isinstance(cached, dict) else None
     
     st.markdown("**Allocation Input (optional)**")
+    st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
+    # Download and Upload: password CPC123 required for both
     st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
     # Download and Upload: password required for both
     alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
@@ -1509,6 +1511,7 @@ def main():
                     pass
                 st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
     else:
+        st.caption("Enter password CPC123 to download or upload the Allocation Input Form.")
         st.caption("Enter password to download or upload the Allocation Input Form.")
     if st.session_state.get('allocation_input'):
         st.info("Allocation input is active.")
@@ -1516,7 +1519,6 @@ def main():
     st.markdown("---")
     
     # Calculate and Find Quintile Cutoffs stacked, same size, same primary style
-    st.markdown("**Select Calculation Mode:**")
     btn_col, _ = st.columns([1, 4])
     with btn_col:
         calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
