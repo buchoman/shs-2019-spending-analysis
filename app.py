@@ -1485,7 +1485,6 @@ def main():
     st.markdown("**Allocation Input (optional)**")
     st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
     # Download and Upload: password CPC123 required for both
-    st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
     # Download and Upload: password required for both
     alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
     pw_col, _ = st.columns([1, 4])
