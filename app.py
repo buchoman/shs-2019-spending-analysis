@@ -1171,12 +1171,12 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
                     n_adults, n_children
                 )
                 row['Shared Spending'] = shared
-                row['Exclusive Spending per Child'] = excl_per_child
                 row['Exclusive Spending per Adult'] = excl_per_adult
+                row['Exclusive Spending per Child'] = excl_per_child
             else:
                 row['Shared Spending'] = np.nan
-                row['Exclusive Spending per Child'] = np.nan
                 row['Exclusive Spending per Adult'] = np.nan
+                row['Exclusive Spending per Child'] = np.nan
         display_rows.append(row)
     
     return pd.DataFrame(display_rows)
@@ -1418,21 +1418,21 @@ def main():
             if len(selected_p5to15) > 0:
                 filters['P5to15YN'] = selected_p5to15
         
-        st.subheader("Allocation: Household Composition")
-        st.caption("Used to split spending into Shared, Exclusive Per Child, and Exclusive Per Adult when allocation input is loaded.")
+        st.subheader("Allocation: Household Composition *")
+        st.markdown("*Required before Calculate by Income Range. You must choose a value (do not leave as \"— Select —\").*")
         total_adults = st.selectbox(
-            "Total Adults",
-            options=[1, 2, 3, 4],
-            index=1,
+            "Total Adults *",
+            options=["— Select —", 1, 2, 3, 4],
+            index=0,
             key="total_adults",
-            help="Number of adults (1–4) for allocation of exclusive spending."
+            help="Required. Number of adults (1–4). Select a value to enable Calculate."
         )
         total_children = st.selectbox(
-            "Total Children",
-            options=[1, 2, 3, 4, 5, 6],
+            "Total Children *",
+            options=["— Select —", 0, 1, 2, 3, 4, 5, 6],
             index=0,
             key="total_children",
-            help="Number of children (1–6) for allocation of exclusive spending."
+            help="Required. Number of children (0–6). Select a value to enable Calculate."
         )
     
     # Update session state with current filters for real-time updates
@@ -1502,12 +1502,51 @@ def main():
         calculate_income_range = st.button("Calculate by Income Range", type="primary", use_container_width=True)
     
     with col2:
-        calculate_quintile = st.button("Calculate by Quintile", type="primary", use_container_width=True)
+        quintile_cutoffs_btn = st.button("Quintile cutoffs", type="primary", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).")
     
     st.markdown("---")
     
-    # Calculate estimates based on which button was clicked
+    # Quintile cutoffs only (efficient: filter + weighted percentiles, no spending calc)
+    if quintile_cutoffs_btn:
+        fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
+        if 'HH_TotInc' not in fq.columns:
+            st.error("Household total income (HH_TotInc) not found.")
+        else:
+            inc = fq['HH_TotInc'].dropna()
+            w = fq.loc[inc.index, 'WeightD'] if 'WeightD' in fq.columns else pd.Series(1.0, index=inc.index)
+            w = w.fillna(0)
+            valid = (inc.notna()) & (w > 0)
+            inc, w = inc[valid], w[valid]
+            if len(inc) == 0:
+                st.error("No valid income data in the filtered sample.")
+            else:
+                ord = np.argsort(inc.values)
+                inc_s, w_s = inc.values[ord], w.values[ord]
+                cw = np.cumsum(w_s)
+                tw = cw[-1]
+                cutoffs = []
+                for p in [20, 40, 60, 80]:
+                    t = tw * (p / 100)
+                    i = np.searchsorted(cw, t, side='left')
+                    i = min(i, len(inc_s) - 1)
+                    cutoffs.append(float(inc_s[i]))
+                st.session_state.quintile_cutoffs = cutoffs
+                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
+                tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
+                st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
+    
+    # Calculate estimates when "Calculate by Income Range" is clicked
     if calculate_income_range:
+        _ta = st.session_state.get("total_adults", "— Select —")
+        _tc = st.session_state.get("total_children", "— Select —")
+        if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
+            st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
+            return
+        if _tc == "— Select —" or _tc not in [0, 1, 2, 3, 4, 5, 6]:
+            st.error("Please select **Total Children** (0–6) in Allocation: Household Composition before calculating.")
+            return
+        st.session_state["allocation_n_adults"] = int(_ta)
+        st.session_state["allocation_n_children"] = int(_tc)
         if len(bootstrap_cols) == 0:
             st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
             return
@@ -1638,484 +1677,6 @@ def main():
         # Store calculation mode in session state
         st.session_state['calculation_mode'] = "income_range"
     
-    if calculate_quintile:
-        if len(bootstrap_cols) == 0:
-            st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
-        else:
-            # For quintile calculation, ignore income range filter (use all filtered data)
-            # Income quintiles will be calculated from the filtered sample
-            filtered_df = filter_data(df, st.session_state.filters, income_range=None)
-            
-            # Store calculation mode in session state
-            st.session_state['calculation_mode'] = "quintile"
-            
-            if 'HH_TotInc' not in filtered_df.columns:
-                st.error("Household total income (HH_TotInc) not found in the dataset.")
-            else:
-                # Remove any income range filter for quintile calculation (use full filtered sample)
-                quintile_df = filtered_df.copy()
-                
-                # Calculate income quintiles based on weighted percentiles
-                # Use weighted quantiles to determine quintile boundaries
-                income_col = 'HH_TotInc'
-                weight_col = 'WeightD'
-                
-                # Filter out missing income values
-                valid_income = quintile_df[income_col].notna() & (quintile_df[weight_col] > 0)
-                quintile_df = quintile_df[valid_income].copy()
-                
-                if len(quintile_df) == 0:
-                    st.error("No valid income data found in the filtered sample.")
-                else:
-                    # Calculate weighted percentiles for quintile boundaries
-                    # Sort by income
-                    sorted_df = quintile_df.sort_values(income_col).copy()
-                    sorted_df['cumsum_weight'] = sorted_df[weight_col].cumsum()
-                    total_weight = sorted_df[weight_col].sum()
-                    
-                    # Find quintile boundaries (20th, 40th, 60th, 80th percentiles)
-                    quintile_boundaries = []
-                    for percentile in [20, 40, 60, 80]:
-                        target_weight = total_weight * (percentile / 100)
-                        # Find the index where cumulative weight reaches or exceeds target
-                        mask = sorted_df['cumsum_weight'] >= target_weight
-                        if mask.any():
-                            boundary_idx = mask.idxmax()
-                            boundary_value = sorted_df.loc[boundary_idx, income_col]
-                            quintile_boundaries.append(boundary_value)
-                        else:
-                            # If target weight is beyond all data, use max income
-                            quintile_boundaries.append(sorted_df[income_col].max())
-                    
-                    # Assign quintiles
-                    def assign_quintile(income):
-                        if pd.isna(income):
-                            return None
-                        if income <= quintile_boundaries[0]:
-                            return 1
-                        elif income <= quintile_boundaries[1]:
-                            return 2
-                        elif income <= quintile_boundaries[2]:
-                            return 3
-                        elif income <= quintile_boundaries[3]:
-                            return 4
-                        else:
-                            return 5
-                    
-                    quintile_df['Income_Quintile'] = quintile_df[income_col].apply(assign_quintile)
-                    
-                    # Get available spending variables
-                    def variable_exists(df, var):
-                        """Check if variable exists in any form (base, _C, or _D)"""
-                        return (var in df.columns or 
-                               (var + '_C') in df.columns or 
-                               (var + '_D') in df.columns)
-                    
-                    ho_q = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
-                    all_hierarchy_vars_q = ho_q if ho_q else sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
-                    available_spending_vars = [
-                        var for var in all_hierarchy_vars_q
-                        if variable_exists(quintile_df, var)
-                    ]
-                    
-                    # Calculate statistics for each quintile and each spending category
-                    quintile_results = []
-                    
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    total_calculations = len(available_spending_vars) * 5
-                    current_calc = 0
-                    
-                    for var in available_spending_vars:
-                        var_desc = SPENDING_DESCRIPTIONS.get(var, var)
-                        
-                        for quintile in range(1, 6):
-                            current_calc += 1
-                            status_text.text(f"Processing {var} - Quintile {quintile} ({current_calc}/{total_calculations})...")
-                            progress_bar.progress(current_calc / total_calculations)
-                            
-                            # Filter to this quintile
-                            quintile_data = quintile_df[quintile_df['Income_Quintile'] == quintile]
-                            
-                            if len(quintile_data) == 0:
-                                continue
-                            
-                            # Calculate weighted mean
-                            mean_est = calculate_weighted_mean(quintile_data, var)
-                            
-                            # Calculate bootstrap variance
-                            variance = calculate_bootstrap_variance(quintile_data, var, bootstrap_cols=bootstrap_cols)
-                            std_error = np.sqrt(variance) if not np.isnan(variance) else np.nan
-                            
-                            # Calculate CV (Coefficient of Variation)
-                            cv = (std_error / mean_est * 100) if not np.isnan(mean_est) and mean_est != 0 else np.nan
-                            
-                            # Calculate sample size (n)
-                            n = calculate_sample_size(quintile_data, var)
-                            
-                            # Get region information if available
-                            region = None
-                            if 'PROV' in quintile_data.columns:
-                                region = quintile_data['PROV'].mode().iloc[0] if len(quintile_data['PROV'].mode()) > 0 else None
-                            
-                            # Determine data quality category
-                            quality_category = determine_data_quality_category(cv, n=n, region=region)
-                            
-                            quintile_results.append({
-                                'Spending Code': var,
-                                'Spending Description': var_desc,
-                                'Income Quintile': quintile,
-                                'Average ($)': mean_est,
-                                'Coefficient of Variation (%)': cv,
-                                'Sample Size (n)': n,
-                                'Data Quality Category': quality_category
-                            })
-                    
-                    progress_bar.empty()
-                    status_text.empty()
-                    
-                    if quintile_results:
-                        quintile_df_results = pd.DataFrame(quintile_results)
-                        
-                        # Round numeric columns
-                        quintile_df_results['Average ($)'] = quintile_df_results['Average ($)'].round(2)
-                        quintile_df_results['Coefficient of Variation (%)'] = quintile_df_results['Coefficient of Variation (%)'].round(2)
-                        
-                        # Store in session state
-                        st.session_state.quintile_results = quintile_df_results
-                        
-                        # Calculate Total (all quintiles combined) for each variable
-                        total_results = []
-                        for var in available_spending_vars:
-                            # Calculate weighted mean for all quintiles combined
-                            total_mean = calculate_weighted_mean(quintile_df, var)
-                            total_variance = calculate_bootstrap_variance(quintile_df, var, bootstrap_cols=bootstrap_cols)
-                            total_std_error = np.sqrt(total_variance) if not np.isnan(total_variance) else np.nan
-                            total_cv = (total_std_error / total_mean * 100) if not np.isnan(total_mean) and total_mean != 0 else np.nan
-                            
-                            total_results.append({
-                                'var': var,
-                                'total_avg': total_mean,
-                                'total_cv': total_cv
-                            })
-                        
-                        total_dict = {r['var']: {'avg': r['total_avg'], 'cv': r['total_cv']} for r in total_results}
-                        
-                        # Order variables using hierarchy_order (full tree) to match regular output
-                        ordered_vars = []
-                        ho_p = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
-                        if ho_p:
-                            ordered_vars = [v for v in ho_p if v in available_spending_vars]
-                        else:
-                            ordered_vars = [var for var in ALL_SPENDING_VARS if var in available_spending_vars]
-                        
-                        # Create pivot table: rows = spending categories, columns = quintiles + Total
-                        # Use same ordering and indentation as regular output
-                        pivot_data = []
-                        for var in ordered_vars:
-                            # Get level for indentation
-                            level = 0
-                            if hierarchy_data:
-                                var_to_node = hierarchy_data.get('var_to_node', {})
-                                node = var_to_node.get(var, {})
-                                level = int(node.get('level', 0)) if node.get('level') is not None else 0
-                            
-                            # Apply indentation: Level 0 and 1 = no indent, Level 2+ = 2 spaces
-                            # This matches the regular output format
-                            if level >= 2:
-                                indent = "  "  # 2 spaces for Level 2
-                            else:
-                                indent = ""  # No indent for Level 0 and 1
-                            var_desc = SPENDING_DESCRIPTIONS.get(var, var)
-                            
-                            row = {
-                                'Spending Code': var, 
-                                'Spending Description': f"{indent}{var_desc}",
-                                'Level': level  # Store level for sorting
-                            }
-                            
-                            # Add quintile columns
-                            for quintile in range(1, 6):
-                                quintile_data = quintile_df_results[
-                                    (quintile_df_results['Spending Code'] == var) & 
-                                    (quintile_df_results['Income Quintile'] == quintile)
-                                ]
-                                
-                                if len(quintile_data) > 0:
-                                    avg = quintile_data.iloc[0]['Average ($)']
-                                    cv = quintile_data.iloc[0]['Coefficient of Variation (%)']
-                                    n = quintile_data.iloc[0].get('Sample Size (n)', np.nan)
-                                    quality = quintile_data.iloc[0].get('Data Quality Category', 'F')
-                                    row[f'Q{quintile} Avg ($)'] = avg
-                                    row[f'Q{quintile} CV (%)'] = cv
-                                    row[f'Q{quintile} n'] = n
-                                    row[f'Q{quintile} Quality'] = quality
-                                else:
-                                    row[f'Q{quintile} Avg ($)'] = np.nan
-                                    row[f'Q{quintile} CV (%)'] = np.nan
-                                    row[f'Q{quintile} n'] = np.nan
-                                    row[f'Q{quintile} Quality'] = 'F'
-                            
-                            # Add Total column
-                            if var in total_dict:
-                                row['Total Avg ($)'] = total_dict[var]['avg']
-                                row['Total CV (%)'] = total_dict[var]['cv']
-                            else:
-                                row['Total Avg ($)'] = np.nan
-                                row['Total CV (%)'] = np.nan
-                            
-                            pivot_data.append(row)
-                        
-                        pivot_df = pd.DataFrame(pivot_data)
-                        # Round numeric columns
-                        for col in pivot_df.columns:
-                            if 'Avg' in col or 'CV' in col:
-                                pivot_df[col] = pd.to_numeric(pivot_df[col], errors='coerce').round(2)
-                            elif 'n' in col and col != 'Spending Description':
-                                # Round sample size to integer
-                                pivot_df[col] = pd.to_numeric(pivot_df[col], errors='coerce').fillna(0).astype(int)
-                        
-                        st.success(f"Calculated spending estimates for {len(available_spending_vars)} categories across 5 income quintiles.")
-                        
-                        # Store quintile pivot table in session state for display
-                        st.session_state.quintile_pivot_df = pivot_df
-                        st.session_state.quintile_boundaries = quintile_boundaries
-                        
-                        # Note: Results will be displayed in the display section below
-                        # Export quintile results to Excel
-                        st.subheader("📥 Export Quintile Results")
-                        try:
-                            from io import BytesIO
-                            from openpyxl import load_workbook
-                            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-                            from openpyxl.utils import get_column_letter
-                            
-                            output = BytesIO()
-                            
-                            # Get all available filter variables and their options
-                            all_filter_vars = {
-                                'PROV': get_unique_values(df, 'Prov'),
-                                'HHTYPE6': get_unique_values(df, 'HHType6'),
-                                'HHSIZE': get_unique_values(df, 'HHSize'),
-                                'DWELTYP': get_unique_values(df, 'DwellTyp'),
-                                'TENURE': get_unique_values(df, 'Tenure'),
-                                'RP_AGEGRP': get_unique_values(df, 'RP_AgeGrp'),
-                                'RP_GENDER': get_unique_values(df, 'RP_Gender'),
-                                'RP_MARSTAT': get_unique_values(df, 'RP_MarStat'),
-                                'RP_EDUC': get_unique_values(df, 'RP_Educ'),
-                                'SP_AGEGRP': get_unique_values(df, 'SP_AgeGrp'),
-                                'SP_EDUC': get_unique_values(df, 'SP_Educ'),
-                                'P0TO4YN': get_unique_values(df, 'P0to4YN'),
-                                'P5TO15YN': get_unique_values(df, 'P5to15YN'),
-                                'VEHICLEYN': get_unique_values(df, 'VehicleYN'),
-                                'HH_MAJINCSRC': get_unique_values(df, 'HH_MajIncSrc')
-                            }
-                            
-                            # Create Excel file
-                            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                all_data = []
-                                
-                                # TOP SECTION: Source and Filters
-                                all_data.append(["Survey of Household Spending 2019 - Spending Estimates by Income Quintile"])
-                                all_data.append([""])
-                                all_data.append(["Source:"])
-                                all_data.append(["Statistics Canada. Survey of Household Spending, 2019. " +
-                                                "Public Use Microdata File. Statistics Canada Catalogue no. 62M0004X. " +
-                                                "This does not constitute an endorsement by Statistics Canada of this product."])
-                                all_data.append([""])
-                                all_data.append(["Generated:", pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")])
-                                all_data.append([""])
-                                all_data.append(["Filter Criteria:"])
-                                all_data.append(["Variable", "Selected Value", "All Available Options"])
-                                
-                                # Add filter information
-                                filter_labels = {
-                                    'PROV': 'Province',
-                                    'HHTYPE6': 'Household type',
-                                    'HHSIZE': 'Household size',
-                                    'DWELTYP': 'Type of dwelling',
-                                    'TENURE': 'Dwelling tenure',
-                                    'RP_AGEGRP': 'Reference person - Age group',
-                                    'RP_GENDER': 'Reference person - Gender',
-                                    'RP_MARSTAT': 'Reference person - Marital status',
-                                    'RP_EDUC': 'Reference person - Education',
-                                    'SP_AGEGRP': 'Spouse - Age group',
-                                    'SP_EDUC': 'Spouse - Education',
-                                    'P0TO4YN': 'Presence of persons aged 0 to 4 years',
-                                    'P5TO15YN': 'Presence of persons aged 5 to 15 years',
-                                    'VEHICLEYN': 'Owned, leased or operated a vehicle',
-                                    'HH_MAJINCSRC': 'Household - Major source of income'
-                                }
-                                
-                                var_name_map = {
-                                    'PROV': 'Prov',
-                                    'HHTYPE6': 'HHType6',
-                                    'HHSIZE': 'HHSize',
-                                    'DWELTYP': 'DwellTyp',
-                                    'TENURE': 'Tenure',
-                                    'RP_AGEGRP': 'RP_AgeGrp',
-                                    'RP_GENDER': 'RP_Gender',
-                                    'RP_MARSTAT': 'RP_MarStat',
-                                    'RP_EDUC': 'RP_Educ',
-                                    'SP_AGEGRP': 'SP_AgeGrp',
-                                    'SP_EDUC': 'SP_Educ',
-                                    'P0TO4YN': 'P0to4YN',
-                                    'P5TO15YN': 'P5to15YN',
-                                    'VEHICLEYN': 'VehicleYN',
-                                    'HH_MAJINCSRC': 'HH_MajIncSrc'
-                                }
-                                
-                                for var, label in filter_labels.items():
-                                    if var in all_filter_vars and all_filter_vars[var]:
-                                        actual_var = var_name_map.get(var, var)
-                                        selected_val = st.session_state.filters.get(actual_var, None)
-                                        if selected_val is not None:
-                                            if isinstance(selected_val, list):
-                                                if len(selected_val) > 0:
-                                                    selected_labels = []
-                                                    for val in selected_val:
-                                                        lbl = format_value(var, val)
-                                                        selected_labels.append(f"{lbl} ({val})")
-                                                    selected_display = "; ".join(selected_labels)
-                                                else:
-                                                    selected_display = "All"
-                                            else:
-                                                selected_label = format_value(var, selected_val)
-                                                selected_display = f"{selected_label} ({selected_val})"
-                                        else:
-                                            selected_display = "All"
-                                        
-                                        options_list = []
-                                        for val in sorted(all_filter_vars[var]):
-                                            opt_label = format_value(var, val)
-                                            options_list.append(f"{opt_label} ({val})")
-                                        options_str = "; ".join(options_list[:10])
-                                        if len(options_list) > 10:
-                                            options_str += f"; ... ({len(options_list)} total options)"
-                                        
-                                        all_data.append([label, selected_display, options_str])
-                                
-                                # Add income range filter if applied
-                                if st.session_state.get('income_range') is not None:
-                                    income_range = st.session_state.income_range
-                                    all_data.append(["Household Total Income Range:", f"${income_range[0]:,.0f} to ${income_range[1]:,.0f}"])
-                                
-                                all_data.append([""])
-                                all_data.append(["Number of Records Matching Criteria:", st.session_state.get('filtered_count', 'N/A')])
-                                
-                                # Add quintile boundaries
-                                all_data.append([""])
-                                all_data.append(["Income Quintile Boundaries:"])
-                                all_data.append(["Quintile", "Income Range"])
-                                all_data.append(["Quintile 1 (Lowest)", f"≤ ${quintile_boundaries[0]:,.0f}"])
-                                all_data.append(["Quintile 2", f"${quintile_boundaries[0]:,.0f} - ${quintile_boundaries[1]:,.0f}"])
-                                all_data.append(["Quintile 3", f"${quintile_boundaries[1]:,.0f} - ${quintile_boundaries[2]:,.0f}"])
-                                all_data.append(["Quintile 4", f"${quintile_boundaries[2]:,.0f} - ${quintile_boundaries[3]:,.0f}"])
-                                all_data.append(["Quintile 5 (Highest)", f"> ${quintile_boundaries[3]:,.0f}"])
-                                
-                                all_data.append([""])
-                                all_data.append([""])
-                                
-                                # BOTTOM SECTION: Quintile Results
-                                all_data.append(["Spending by Income Quintile"])
-                                
-                                # Create header row
-                                header_row = ["Spending Code", "Spending Description"]
-                                for q in range(1, 6):
-                                    header_row.append(f"Q{q} Avg ($)")
-                                    header_row.append(f"Q{q} CV (%)")
-                                header_row.append("Total Avg ($)")
-                                header_row.append("Total CV (%)")
-                                all_data.append(header_row)
-                                
-                                # Add data rows (using same ordering as display)
-                                for _, row in pivot_df.iterrows():
-                                    data_row = [
-                                        row['Spending Code'],
-                                        row['Spending Description']  # Already has indentation
-                                    ]
-                                    for q in range(1, 6):
-                                        avg_col = f'Q{q} Avg ($)'
-                                        cv_col = f'Q{q} CV (%)'
-                                        data_row.append(round(row[avg_col], 2) if pd.notna(row[avg_col]) else "")
-                                        data_row.append(round(row[cv_col], 2) if pd.notna(row[cv_col]) else "")
-                                    data_row.append(round(row['Total Avg ($)'], 2) if pd.notna(row['Total Avg ($)']) else "")
-                                    data_row.append(round(row['Total CV (%)'], 2) if pd.notna(row['Total CV (%)']) else "")
-                                    all_data.append(data_row)
-                                
-                                # Convert to DataFrame and write
-                                export_df = pd.DataFrame(all_data)
-                                export_df.to_excel(writer, sheet_name='Quintile Results', index=False, header=False)
-                            
-                            # Format the Excel file
-                            output.seek(0)
-                            wb = load_workbook(output)
-                            ws = wb['Quintile Results']
-                            
-                            # Set print area and page setup
-                            max_row = ws.max_row
-                            max_col = ws.max_column
-                            ws.print_area = f'A1:{get_column_letter(max_col)}{max_row}'
-                            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-                            ws.page_setup.fitToWidth = 1
-                            ws.page_setup.fitToHeight = 0
-                            
-                            # Style headers
-                            header_font = Font(bold=True, size=11)
-                            title_font = Font(bold=True, size=12)
-                            
-                            # Format title row
-                            ws['A1'].font = title_font
-                            ws.merge_cells(f'A1:{get_column_letter(max_col)}1')
-                            
-                            # Format section headers
-                            for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=max_row), 1):
-                                cell_value = str(row[0].value) if row[0].value else ""
-                                
-                                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Income Quintile Boundaries:", 
-                                                                                     "Spending by Income Quintile"])
-                                if is_header:
-                                    for cell in row:
-                                        cell.font = Font(bold=True, size=11)
-                                        cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
-                            
-                            # Auto-adjust column widths
-                            for col in ws.columns:
-                                max_length = 0
-                                col_letter = get_column_letter(col[0].column)
-                                for cell in col:
-                                    try:
-                                        if cell.value:
-                                            max_length = max(max_length, len(str(cell.value)))
-                                    except:
-                                        pass
-                                adjusted_width = min(max_length + 2, 50)
-                                ws.column_dimensions[col_letter].width = adjusted_width
-                            
-                            # Save formatted workbook
-                            output = BytesIO()
-                            wb.save(output)
-                            output.seek(0)
-                            excel_data = output.read()
-                            
-                            st.download_button(
-                                label="Download Quintile Results (Excel)",
-                                data=excel_data,
-                                file_name="spending_estimates_by_quintile.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key="excel_quintile",
-                                type="primary",
-                                use_container_width=True
-                            )
-                        except ImportError:
-                            st.warning("Excel export requires openpyxl. Install with: pip install openpyxl")
-                        except Exception as e:
-                            st.error(f"Error creating Excel file: {e}")
-                            import traceback
-                            st.text(traceback.format_exc())
-                    else:
-                        st.warning("No results calculated. Please check your data filters.")
-    
     # Display results based on calculation mode
     calculation_mode_display = st.session_state.get('calculation_mode', None)
     
@@ -2147,7 +1708,7 @@ def main():
         // Right-justify specific column headers and cells
         function alignNumericColumns() {
             const tables = document.querySelectorAll('div[data-testid="stDataFrame"] table');
-            const numericHeaders = ['Mean Dollars Per Year', 'Coefficient of Variation', 'Granular Allocation', 'Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult'];
+            const numericHeaders = ['Mean Dollars Per Year', 'Coefficient of Variation', 'Granular Allocation', 'Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Adult', 'Exclusive Spending per Child'];
             
             tables.forEach(table => {
                 const headers = Array.from(table.querySelectorAll('thead th'));
@@ -2180,8 +1741,8 @@ def main():
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data_display) if hierarchical_results else {}
         allocation_display = st.session_state.get('allocation_input')
-        n_a = max(1, int(st.session_state.get('total_adults', 2)))
-        n_c = max(0, int(st.session_state.get('total_children', 1)))
+        n_a = int(st.session_state.get('allocation_n_adults', 2))
+        n_c = int(st.session_state.get('allocation_n_children', 0))
         
         # Summary block (same as Excel): Total Consumption and Gifts, N Adults/Children, Shared/Exclusive with Dollars|Percent
         total_consumption_gifts = 0
@@ -2202,10 +1763,10 @@ def main():
                 total_excl_child_d += n_c * excl_c
         total_alloc = total_shared_d + total_excl_adult_d + total_excl_child_d
         pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
-        pct_excl_a = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
-        pct_excl_c = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
         per_adult_d = (total_excl_adult_d / n_a) if n_a else 0
         per_child_d = (total_excl_child_d / n_c) if n_c else 0
+        pct_per_adult = (per_adult_d / total_alloc * 100) if total_alloc else 0
+        pct_per_child = (per_child_d / total_alloc * 100) if total_alloc else 0
         
         sc1, sc2, sc3 = st.columns(3)
         with sc1:
@@ -2216,8 +1777,8 @@ def main():
             st.metric("Number of Children", int(n_c))
         summary_rows = [
             {" ": "Shared Spending", "Dollars": f"${round(total_shared_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_shared:.2f}%" if (allocation_display and total_alloc) else "—"},
-            {" ": "Exclusive Spending per Adult", "Dollars": f"${round(per_adult_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_excl_a:.2f}%" if (allocation_display and total_alloc) else "—"},
-            {" ": "Exclusive Spending per Child", "Dollars": f"${round(per_child_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_excl_c:.2f}%" if (allocation_display and total_alloc) else "—"},
+            {" ": "Exclusive Spending per Adult", "Dollars": f"${round(per_adult_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_per_adult:.2f}%" if (allocation_display and total_alloc) else "—"},
+            {" ": "Exclusive Spending per Child", "Dollars": f"${round(per_child_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_per_child:.2f}%" if (allocation_display and total_alloc) else "—"},
         ]
         st.caption("Dollars and Percent. Exclusive amounts are per Adult and per Child. When allocation form is not loaded, values show —.")
         st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, height=140)
@@ -2229,7 +1790,7 @@ def main():
             try:
                 import plotly.graph_objects as go
                 fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside")])
-                fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=True, legend=dict(orientation="h", yanchor="top", y=-0.05, xanchor="center", x=0.5))
+                fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
             except Exception:
                 pass
@@ -2244,7 +1805,7 @@ def main():
                 n_children=n_c
             )
             exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Flag', 'Granular Allocation']
-            alloc_cols = ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult']
+            alloc_cols = ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Adult', 'Exclusive Spending per Child']
             display_cols = exp_cols + [c for c in alloc_cols if c in display_df.columns]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]]
             st.dataframe(display_df, use_container_width=True, height=400)
@@ -2260,7 +1821,7 @@ def main():
                 for c in ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult']:
                     fallback_df[c] = ""
             exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Flag', 'Granular Allocation']
-            fallback_df = fallback_df[[c for c in exp_cols + (['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult'] if allocation_display else []) if c in fallback_df.columns]]
+            fallback_df = fallback_df[[c for c in exp_cols + (['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Adult', 'Exclusive Spending per Child'] if allocation_display else []) if c in fallback_df.columns]]
             st.dataframe(fallback_df, use_container_width=True, height=400)
         
         # Export options - Single download button
@@ -2405,8 +1966,8 @@ def main():
                         results_df.loc[results_df['Spending Code'] == 'TC001', 'Mean Dollars Per Year'].sum() +
                         results_df.loc[results_df['Spending Code'] == 'MG001', 'Mean Dollars Per Year'].sum()
                     )
-                n_a = max(1, int(st.session_state.get('total_adults', 2)))
-                n_c = max(0, int(st.session_state.get('total_children', 1)))
+                n_a = int(st.session_state.get('allocation_n_adults', 2))
+                n_c = int(st.session_state.get('allocation_n_children', 0))
                 
                 # Allocation totals across granular allocation rows (for middle-section percentages and dollars)
                 total_shared_d = 0.0
@@ -2425,11 +1986,11 @@ def main():
                         total_excl_child_d += n_c * excl_c
                 total_alloc = total_shared_d + total_excl_adult_d + total_excl_child_d
                 pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
-                pct_excl_a = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
-                pct_excl_c = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
-                # Per-adult and per-child amounts (not aggregates)
+                # Per-adult and per-child amounts and percentages (not aggregates)
                 per_adult_d = (total_excl_adult_d / n_a) if n_a else 0
                 per_child_d = (total_excl_child_d / n_c) if n_c else 0
+                pct_per_adult = (per_adult_d / total_alloc * 100) if total_alloc else 0
+                pct_per_child = (per_child_d / total_alloc * 100) if total_alloc else 0
                 
                 # Middle section: Total Consumption and Gifts, N Adults/Children, then header "Dollars"|"Percent" and 3 rows: Shared Spending, Exclusive per Adult, Exclusive per Child
                 all_data.append(["Total Consumption and Gifts", round(total_consumption_gifts, 0) if total_consumption_gifts else 0])
@@ -2437,8 +1998,8 @@ def main():
                 all_data.append(["Number of Children", int(n_c)])
                 all_data.append(["", "Dollars", "Percent"])  # header for the 3 allocation rows
                 all_data.append(["Shared Spending", round(total_shared_d, 0) if allocation_export else "", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
-                all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export else "", (round(pct_excl_a / 100, 4) if allocation_export and total_alloc else "")])
-                all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export else "", (round(pct_excl_c / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export else "", (round(pct_per_adult / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export else "", (round(pct_per_child / 100, 4) if allocation_export and total_alloc else "")])
                 
                 all_data.append([""])
                 all_data.append([""])
@@ -2447,7 +2008,7 @@ def main():
                 all_data.append(["By Expenditure Category"])
                 exp_header = ["Spending Description", "Mean Dollars per Year", "Coefficient of Variation", "Data Quality Flag", "Granular Allocation"]
                 if allocation_export is not None:
-                    exp_header += ["Shared Consumption %", "Child Intensity Index", "Shared Spending", "Exclusive Spending per Child", "Exclusive Spending per Adult"]
+                    exp_header += ["Shared Consumption %", "Child Intensity Index", "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"]
                 all_data.append(exp_header)
                 exp_header_excel_row = len(all_data)
                 exp_num_cols = len(exp_header)
@@ -2485,8 +2046,8 @@ def main():
                             if show_alloc:
                                 shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
                                 row.append(round(shared, 2))
+                                row.append(round(excl_a, 2))   # Exclusive per Adult before per Child
                                 row.append(round(excl_c, 2))
-                                row.append(round(excl_a, 2))
                             else:
                                 row.extend(["", "", ""])
                         all_data.append(row)
@@ -2640,27 +2201,6 @@ def main():
             import traceback
             st.text(traceback.format_exc())
     
-    # Show quintile results only if calculation mode is quintile
-    elif calculation_mode_display == "quintile" and 'quintile_pivot_df' in st.session_state:
-        st.markdown("---")
-        st.subheader("📊 Spending by Income Quintile")
-        
-        # Display quintile boundaries
-        quintile_boundaries = st.session_state.get('quintile_boundaries', None)
-        if quintile_boundaries:
-            st.info(f"""
-            **Income Quintile Boundaries:**
-            - Quintile 1 (Lowest): ≤ ${quintile_boundaries[0]:,.0f}
-            - Quintile 2: ${quintile_boundaries[0]:,.0f} - ${quintile_boundaries[1]:,.0f}
-            - Quintile 3: ${quintile_boundaries[1]:,.0f} - ${quintile_boundaries[2]:,.0f}
-            - Quintile 4: ${quintile_boundaries[2]:,.0f} - ${quintile_boundaries[3]:,.0f}
-            - Quintile 5 (Highest): > ${quintile_boundaries[3]:,.0f}
-            """)
-        
-        # Display quintile results table
-        pivot_df = st.session_state.quintile_pivot_df
-        st.dataframe(pivot_df, use_container_width=True, height=600)
-
 if __name__ == "__main__":
     main()
 
