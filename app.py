@@ -1149,6 +1149,26 @@ def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     return shared, excl_per_child, excl_per_adult
 
 
+def _normalize_shared_pct(value):
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return np.nan
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        return np.nan
+    return value / 100 if value > 1 else value
+
+
+def _normalize_child_intensity(value):
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return np.nan
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        return np.nan
+    return value / 10 if value > 1 else value
+
+
 def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
@@ -1171,17 +1191,17 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
         show_alloc = bool(alloc) and _has_granular_value(ga)
         lookup = alloc.get(var_code, {}) if show_alloc else {}
         
+        quality = item.get('quality', 'F')
         row = {
             'Spending Description': f"{indent}{description}",
             'Mean Dollars Per Year': item['mean'],
-            'Coefficient of Variation': item['cv'],
-            'Data Quality Flag': item.get('quality', 'F'),
+            'Data Quality Flag': quality,
             'Granular Allocation': ga
         }
         # Add Shared Consumption %, Child Intensity Index, and the 3 allocation columns when user has loaded allocation data
         if allocation_lookup is not None:
-            row['Shared Consumption %'] = lookup.get('shared_pct') if show_alloc else np.nan
-            row['Child Intensity Index'] = lookup.get('child_intensity') if show_alloc else np.nan
+            row['Shared Consumption %'] = _normalize_shared_pct(lookup.get('shared_pct')) if show_alloc else np.nan
+            row['Child Intensity Index'] = _normalize_child_intensity(lookup.get('child_intensity')) if show_alloc else np.nan
             if show_alloc:
                 shared, excl_per_child, excl_per_adult = _allocation_split(
                     item['mean'],
@@ -1196,6 +1216,18 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
                 row['Shared Spending'] = np.nan
                 row['Exclusive Spending per Adult'] = np.nan
                 row['Exclusive Spending per Child'] = np.nan
+        if quality == 'F':
+            for key in [
+                'Mean Dollars Per Year',
+                'Granular Allocation',
+                'Shared Consumption %',
+                'Child Intensity Index',
+                'Shared Spending',
+                'Exclusive Spending per Adult',
+                'Exclusive Spending per Child'
+            ]:
+                if key in row:
+                    row[key] = np.nan
         display_rows.append(row)
     
     return pd.DataFrame(display_rows)
@@ -1724,7 +1756,7 @@ def main():
         // Right-justify specific column headers and cells
         function alignNumericColumns() {
             const tables = document.querySelectorAll('div[data-testid="stDataFrame"] table');
-            const numericHeaders = ['Mean Dollars Per Year', 'Coefficient of Variation', 'Granular Allocation', 'Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Adult', 'Exclusive Spending per Child'];
+            const numericHeaders = ['Reported $', 'Allocated $', 'Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $', 'Quality'];
             
             tables.forEach(table => {
                 const headers = Array.from(table.querySelectorAll('thead th'));
@@ -1845,7 +1877,42 @@ def main():
                         pass
         
         # Display by expenditure category (same columns as Excel)
-        st.subheader("By Expenditure Category")
+        st.subheader("Allocation by Expenditure Category")
+        with st.expander("Quality legend"):
+            st.markdown(
+                "A = Publish (C.V.<16.6%)  \n"
+                "E = Use with Caution (16.6%<=CV<35%)  \n"
+                "F = Suppress (CV>=35%)"
+            )
+        with st.expander("Child Intensity help"):
+            st.markdown(
+                "For every ten units of exclusive spending in a home containing adults and children, "
+                "a 0.00 score means that 100% is spent on a representative adult, a 1.00 score means "
+                "that 100% is spent on a representative child, and a 0.50 score means equal spending "
+                "on children and adults."
+            )
+        column_config = {
+            "Expenditure Category": st.column_config.TextColumn("Expenditure Category"),
+            "Reported $": st.column_config.NumberColumn("Reported $", format="$%,.2f"),
+            "Quality": st.column_config.TextColumn("Quality"),
+            "Allocated $": st.column_config.NumberColumn("Allocated $", format="$%,.2f"),
+            "Shared %": st.column_config.NumberColumn("Shared %", format=".2%"),
+            "Child Intensity": st.column_config.NumberColumn("Child Intensity", format=".2f"),
+            "Shared $": st.column_config.NumberColumn("Shared $", format="$%,.2f"),
+            "Exclusive (Adult) $": st.column_config.NumberColumn("Exclusive (Adult) $", format="$%,.2f"),
+            "Exclusive (Child) $": st.column_config.NumberColumn("Exclusive (Child) $", format="$%,.2f")
+        }
+        rename_map = {
+            'Spending Description': 'Expenditure Category',
+            'Mean Dollars Per Year': 'Reported $',
+            'Data Quality Flag': 'Quality',
+            'Granular Allocation': 'Allocated $',
+            'Shared Consumption %': 'Shared %',
+            'Child Intensity Index': 'Child Intensity',
+            'Shared Spending': 'Shared $',
+            'Exclusive Spending per Adult': 'Exclusive (Adult) $',
+            'Exclusive Spending per Child': 'Exclusive (Child) $'
+        }
         if hierarchical_results:
             display_df = build_hierarchical_display(
                 hierarchical_results, var_to_node, hierarchy_data_display,
@@ -1853,13 +1920,20 @@ def main():
                 n_adults=n_a,
                 n_children=n_c
             )
-            exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Flag', 'Granular Allocation']
+            exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Data Quality Flag', 'Granular Allocation']
             alloc_cols = ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Adult', 'Exclusive Spending per Child']
             display_cols = exp_cols + [c for c in alloc_cols if c in display_df.columns]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]]
-            st.dataframe(display_df, use_container_width=True, height=400)
+            display_df = display_df.rename(columns=rename_map)
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                height=400,
+                hide_index=True,
+                column_config=column_config
+            )
         else:
-            need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
+            need = ['Spending Description', 'Mean Dollars Per Year', 'Data Quality Category']
             fallback_df = results_df[[c for c in need if c in results_df.columns]].copy()
             if 'Data Quality Category' in fallback_df.columns:
                 fallback_df = fallback_df.rename(columns={'Data Quality Category': 'Data Quality Flag'})
@@ -1869,9 +1943,28 @@ def main():
             if allocation_display:
                 for c in ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult']:
                     fallback_df[c] = ""
-            exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Flag', 'Granular Allocation']
+            exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Data Quality Flag', 'Granular Allocation']
             fallback_df = fallback_df[[c for c in exp_cols + (['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Adult', 'Exclusive Spending per Child'] if allocation_display else []) if c in fallback_df.columns]]
-            st.dataframe(fallback_df, use_container_width=True, height=400)
+            suppress_cols = [
+                'Mean Dollars Per Year',
+                'Granular Allocation',
+                'Shared Consumption %',
+                'Child Intensity Index',
+                'Shared Spending',
+                'Exclusive Spending per Adult',
+                'Exclusive Spending per Child'
+            ]
+            suppress_cols = [c for c in suppress_cols if c in fallback_df.columns]
+            if suppress_cols:
+                fallback_df.loc[fallback_df['Data Quality Flag'] == 'F', suppress_cols] = np.nan
+            fallback_df = fallback_df.rename(columns=rename_map)
+            st.dataframe(
+                fallback_df,
+                use_container_width=True,
+                height=400,
+                hide_index=True,
+                column_config=column_config
+            )
         
         # Export options - Single download button
         st.subheader("📥 Export Results")
@@ -2054,10 +2147,10 @@ def main():
                 all_data.append([""])
                 
                 # BOTTOM SECTION: Expenditure Categories (reduced columns only)
-                all_data.append(["By Expenditure Category"])
-                exp_header = ["Spending Description", "Mean Dollars per Year", "Coefficient of Variation", "Data Quality Flag", "Granular Allocation"]
+                all_data.append(["Allocation by Expenditure Category"])
+                exp_header = ["Expenditure Category", "Reported $", "Quality", "Allocated $"]
                 if allocation_export is not None:
-                    exp_header += ["Shared Consumption %", "Child Intensity Index", "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"]
+                    exp_header += ["Shared %", "Child Intensity", "Shared $", "Exclusive (Adult) $", "Exclusive (Child) $"]
                 all_data.append(exp_header)
                 exp_header_excel_row = len(all_data)
                 exp_num_cols = len(exp_header)
@@ -2077,22 +2170,30 @@ def main():
                             var_row = results_df[results_df['Spending Code'] == var_code]
                             if len(var_row) > 0:
                                 quality = var_row.iloc[0]['Data Quality Category']
-                        cv = round(item['cv'], 2) if not pd.isna(item['cv']) else ""
                         row = [
                             f"{indent}{description}",
                             round(item['mean'], 2),
-                            cv,
                             quality,
                             ga_display
                         ]
+                        if quality == 'F':
+                            row[1] = ""
+                            row[3] = ""
                         if allocation_export is not None:
                             show_alloc = _has_granular_value(ga)
                             lookup = allocation_export.get(var_code, {}) if show_alloc else {}
                             v1 = lookup.get('shared_pct')
                             v2 = lookup.get('child_intensity')
-                            row.append(round(v1, 2) if v1 is not None and isinstance(v1, (int, float)) else "")
-                            row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
-                            if show_alloc:
+                            shared_pct = _normalize_shared_pct(v1) if show_alloc else np.nan
+                            child_intensity = _normalize_child_intensity(v2) if show_alloc else np.nan
+                            shared_pct_val = round(shared_pct, 4) if not pd.isna(shared_pct) else ""
+                            child_intensity_val = round(child_intensity, 2) if not pd.isna(child_intensity) else ""
+                            if quality == 'F':
+                                shared_pct_val = ""
+                                child_intensity_val = ""
+                            row.append(shared_pct_val)
+                            row.append(child_intensity_val)
+                            if show_alloc and quality != 'F':
                                 shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
                                 row.append(round(shared, 2))
                                 row.append(round(excl_a, 2))   # Exclusive per Adult before per Child
@@ -2102,16 +2203,18 @@ def main():
                         all_data.append(row)
                 else:
                     # Fallback (reduced columns; no hierarchy — Granular Allocation blank)
-                    need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
+                    need = ['Spending Description', 'Mean Dollars Per Year', 'Data Quality Category']
                     results_export = results_df[[c for c in need if c in results_df.columns]].copy()
                     for _, r in results_export.iterrows():
+                        quality = r.get('Data Quality Category', 'F')
                         data_row = [
                             r.get('Spending Description', ''),
                             round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else "",
-                            round(r['Coefficient of Variation'], 2) if 'Coefficient of Variation' in r and not pd.isna(r.get('Coefficient of Variation')) else "",
-                            r.get('Data Quality Category', 'F'),
+                            quality,
                             ""  # Granular Allocation
                         ]
+                        if quality == 'F':
+                            data_row[1] = ""
                         if allocation_export is not None:
                             data_row.extend(["", "", "", "", ""])
                         all_data.append(data_row)
@@ -2153,8 +2256,8 @@ def main():
                 cell_value = str(row[0].value) if row[0].value else ""
                 
                 # Format section headers
-                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", 
-                                                             "By Expenditure Category", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL"])
+                is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:",
+                                                             "Allocation by Expenditure Category", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL"])
                 if is_header:
                     for cell in row:
                         cell.font = Font(bold=True, size=11)
@@ -2177,7 +2280,7 @@ def main():
             for c in range(4, exp_num_cols + 1):
                 ws.cell(row=exp_header_excel_row, column=c).alignment = wrap_right
             
-            # Expenditure data: number formats (1=text, 2=currency 2dec, 3=0.00, 4=text, 5=currency 2dec; 6=0.00%, 7=0.00, 8–10=currency 2dec when allocation)
+            # Expenditure data: number formats (1=text, 2=currency 2dec, 3=text, 4=currency 2dec; 5=0.00%, 6=0.00, 7–9=currency 2dec when allocation)
             fmt_currency2 = '$#,##0.00'
             fmt_currency0 = '$#,##0'
             fmt_pct = '0.00%'
@@ -2185,19 +2288,17 @@ def main():
             for r in range(exp_header_excel_row + 1, max_row + 1):
                 for c in range(1, exp_num_cols + 1):
                     cell = ws.cell(row=r, column=c)
-                    if c == 1 or c == 4:
+                    if c == 1 or c == 3:
                         cell.number_format = '@'  # text
                     elif c == 2:
                         cell.number_format = fmt_currency2
-                    elif c == 3:
-                        cell.number_format = fmt_dec2
-                    elif c == 5:
+                    elif c == 4:
                         cell.number_format = fmt_currency2
-                    elif c == 6 and exp_num_cols >= 6:
+                    elif c == 5 and exp_num_cols >= 5:
                         cell.number_format = fmt_pct
-                    elif c == 7 and exp_num_cols >= 7:
+                    elif c == 6 and exp_num_cols >= 6:
                         cell.number_format = fmt_dec2
-                    elif c in (8, 9, 10) and exp_num_cols >= c:
+                    elif c in (7, 8, 9) and exp_num_cols >= c:
                         cell.number_format = fmt_currency2
             
             # Middle section: Total Consumption and Gifts, N Adults/Children, header Dollars|Percent, 3 allocation rows (B=$, C=%)
