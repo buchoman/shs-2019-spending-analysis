@@ -1519,9 +1519,6 @@ def main():
     else:
         st.caption("Enter password CPC123 to download or upload the Allocation Input Form.")
         st.caption("Enter password to download or upload the Allocation Input Form.")
-    if st.session_state.get('allocation_input'):
-        st.info("Allocation input is active.")
-    
     st.markdown("---")
     
     # Calculate button (only shown when required allocation fields are set)
