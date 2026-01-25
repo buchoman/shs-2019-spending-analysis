@@ -1517,7 +1517,6 @@ def main():
                     pass
                 st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
     else:
-        st.caption("Enter password CPC123 to download or upload the Allocation Input Form.")
         st.caption("Enter password to download or upload the Allocation Input Form.")
     if st.session_state.get('allocation_input'):
         st.info("Allocation input is active.")
