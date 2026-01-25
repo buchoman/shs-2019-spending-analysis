@@ -1364,7 +1364,7 @@ def main():
             if len(selected_rp_educ) > 0:
                 filters['RP_Educ'] = selected_rp_educ
         
-        st.subheader("Income")
+        st.subheader("Major Income Source")
         hh_majinc = get_unique_values(df, 'HH_MajIncSrc')
         if hh_majinc:
             selected_inc = st.multiselect(
@@ -1376,7 +1376,7 @@ def main():
             if len(selected_inc) > 0:
                 filters['HH_MajIncSrc'] = selected_inc
         
-        st.subheader("Vehicles")
+        st.subheader("Private Vehicle?")
         vehicle_yn = get_unique_values(df, 'VehicleYN')
         if vehicle_yn:
             selected_vehicle = st.multiselect(
@@ -1390,7 +1390,7 @@ def main():
     
     # RIGHT COLUMN: Spouse, Children, Allocation
     with col3:
-        st.subheader("Spouse Information")
+        st.subheader("Spouse Demographics")
         # Check if SPOUSEYN exists, otherwise infer from SP_AgeGrp (if it has "96" = No spouse)
         sp_age = get_unique_values(df, 'SP_AgeGrp')
         if sp_age:
@@ -2243,4 +2243,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-
