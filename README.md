@@ -8,10 +8,10 @@ This application allows users to select demographic attributes and get detailed 
   - Geography (Province)
   - Household Characteristics (Type, Size, Dwelling Type, Tenure)
   - Reference Person Demographics (Age, Gender, Marital Status, Education)
-  - Spouse Information (Age, Education)
+  - Spouse Demographics (Age, Education)
   - Children in Household (Presence by age groups)
-  - Vehicles (Ownership)
-  - Income (Major source of income)
+  - Private Vehicle? (Ownership)
+  - Major Income Source (Major source of income)
 
 - **Comprehensive Spending Estimates**: 
   - Estimates for all spending codes (expenditure variables)
@@ -99,4 +99,3 @@ Spending is organized into the following major categories:
 - The application uses caching to speed up data loading
 - Ensure sufficient memory for large datasets
 - Spending estimates are in dollars per year (annual household spending)
-
