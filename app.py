@@ -1320,6 +1320,33 @@ def main():
                 use_container_width=True,
                 help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation)."
             )
+            if quintile_cutoffs_btn:
+                fq = filter_data(df, filters, income_range=income_range)
+                if 'HH_TotInc' not in fq.columns:
+                    st.error("Household total income (HH_TotInc) not found.")
+                else:
+                    inc = fq['HH_TotInc'].dropna()
+                    w = fq.loc[inc.index, 'WeightD'] if 'WeightD' in fq.columns else pd.Series(1.0, index=inc.index)
+                    w = w.fillna(0)
+                    valid = (inc.notna()) & (w > 0)
+                    inc, w = inc[valid], w[valid]
+                    if len(inc) == 0:
+                        st.error("No valid income data in the filtered sample.")
+                    else:
+                        ord = np.argsort(inc.values)
+                        inc_s, w_s = inc.values[ord], w.values[ord]
+                        cw = np.cumsum(w_s)
+                        tw = cw[-1]
+                        cutoffs = []
+                        for p in [20, 40, 60, 80]:
+                            t = tw * (p / 100)
+                            i = np.searchsorted(cw, t, side='left')
+                            i = min(i, len(inc_s) - 1)
+                            cutoffs.append(float(inc_s[i]))
+                        st.session_state.quintile_cutoffs = cutoffs
+                        st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
+                        tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
+                        st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
         else:
             income_range = None
             quintile_cutoffs_btn = False
@@ -1530,35 +1557,6 @@ def main():
         calculate_income_range = st.button("Calculate", type="primary", use_container_width=True) if has_required_allocation else False
     
     st.markdown("---")
-    
-    # Quintile cutoffs only (efficient: filter + weighted percentiles, no spending calc)
-    if quintile_cutoffs_btn:
-        fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
-        if 'HH_TotInc' not in fq.columns:
-            st.error("Household total income (HH_TotInc) not found.")
-        else:
-            inc = fq['HH_TotInc'].dropna()
-            w = fq.loc[inc.index, 'WeightD'] if 'WeightD' in fq.columns else pd.Series(1.0, index=inc.index)
-            w = w.fillna(0)
-            valid = (inc.notna()) & (w > 0)
-            inc, w = inc[valid], w[valid]
-            if len(inc) == 0:
-                st.error("No valid income data in the filtered sample.")
-            else:
-                ord = np.argsort(inc.values)
-                inc_s, w_s = inc.values[ord], w.values[ord]
-                cw = np.cumsum(w_s)
-                tw = cw[-1]
-                cutoffs = []
-                for p in [20, 40, 60, 80]:
-                    t = tw * (p / 100)
-                    i = np.searchsorted(cw, t, side='left')
-                    i = min(i, len(inc_s) - 1)
-                    cutoffs.append(float(inc_s[i]))
-                st.session_state.quintile_cutoffs = cutoffs
-                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
-                tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
-                st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
     
     def _run_calculation():
         _ta = st.session_state.get("total_adults", "— Select —")
