@@ -1494,13 +1494,12 @@ def main():
     
     st.markdown("---")
     
-    # Binary choice: Calculate (primary, smaller) and Quintile cutoffs (distinctive, secondary style)
+    # Calculate and Find Quintile Cutoffs stacked, same size, same primary style
     st.markdown("**Select Calculation Mode:**")
-    btn_col1, btn_col2 = st.columns([1, 3])
-    with btn_col1:
+    btn_col, _ = st.columns([1, 4])
+    with btn_col:
         calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
-    with btn_col2:
-        quintile_cutoffs_btn = st.button("Quintile cutoffs", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).")
+        quintile_cutoffs_btn = st.button("Find Quintile Cutoffs", type="primary", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).")
     
     st.markdown("---")
     
@@ -1701,6 +1700,18 @@ def main():
         div[data-testid="stDataFrame"] thead tr th {
             background-color: #f0f1f2 !important;
         }
+        /* Left margin metrics: smaller font to balance table/pie; light panel look */
+        .metrics-margin { font-size: 0.85rem; background: #f8f9fa; padding: 10px 12px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .metrics-margin .metric-label { display: block; color: #6c757d; font-size: 0.8rem; margin-bottom: 2px; }
+        .metrics-margin .metric-value { font-size: 1.05rem; font-weight: 600; color: #1e293b; }
+        .metrics-margin .metric-item { padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+        .metrics-margin .metric-item:last-child { border-bottom: none; padding-bottom: 0; }
+        /* Summary allocation table: 2 cols, larger readable font, polished */
+        .summary-allocation-table { font-size: 1rem; border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .summary-allocation-table th { background: #2c3e50; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 0.95rem; }
+        .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #fafbfc; }
+        .summary-allocation-table tr:last-child td { border-bottom: none; }
+        .summary-allocation-table td:last-child { text-align: right; font-weight: 500; }
         </style>
         <script>
         // Right-justify specific column headers and cells
@@ -1768,31 +1779,51 @@ def main():
         pct_agg_adults = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
         pct_agg_children = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
         
-        # Web-only layout: stacked metrics in left margin, then table (left) + pie (right)
+        # Web-only layout: stacked metrics in left margin (smaller font), then table (left) + pie (right) with 2-col table
         margin_col, main_col = st.columns([1, 4])
         with margin_col:
-            st.metric("Total Consumption and Gifts", f"${round(total_consumption_gifts, 0):,.0f}" if total_consumption_gifts else "—")
-            st.metric("Number of Adults", int(n_a))
-            st.metric("Number of Children", int(n_c))
+            _v1 = f"${round(total_consumption_gifts, 0):,.0f}" if total_consumption_gifts else "—"
+            _v2 = str(int(n_a))
+            _v3 = str(int(n_c))
+            st.markdown(f'''
+            <div class="metrics-margin">
+              <div class="metric-item"><span class="metric-label">Total Consumption and Gifts</span><span class="metric-value">{_v1}</span></div>
+              <div class="metric-item"><span class="metric-label">Number of Adults</span><span class="metric-value">{_v2}</span></div>
+              <div class="metric-item"><span class="metric-label">Number of Children</span><span class="metric-value">{_v3}</span></div>
+            </div>''', unsafe_allow_html=True)
         with main_col:
-            # Table: Shared + Exclusive with new web-only labels: "Exclusive Spending: Adult(s) = N × Y.YY% = Z.ZZ%" (Y=per-adult, Z=aggregate)
-            summary_rows = [
-                {" ": "Shared Spending", "Dollars": f"${round(total_shared_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_shared:.2f}%" if (allocation_display and total_alloc) else "—"},
-                {" ": f"Exclusive Spending: Adult(s) = {n_a} × {pct_per_adult:.2f}% = {pct_agg_adults:.2f}%" if (allocation_display and total_alloc) else "Exclusive Spending per Adult", "Dollars": f"${round(per_adult_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_agg_adults:.2f}%" if (allocation_display and total_alloc) else "—"},
-                {" ": f"Exclusive Spending: Child(ren) = {n_c} × {pct_per_child:.2f}% = {pct_agg_children:.2f}%" if (allocation_display and total_alloc) else "Exclusive Spending per Child", "Dollars": f"${round(per_child_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_agg_children:.2f}%" if (allocation_display and total_alloc) else "—"},
-            ]
-            st.caption("Dollars and Percent. Exclusive: per-adult/per-child dollars; label shows N × per-unit % = aggregate %. When allocation form is not loaded, values show —.")
+            # Table: 2 columns only — Labels (with % in label) and Dollars
+            if allocation_display and total_alloc:
+                lbl1 = f"Shared Spending = {pct_shared:.2f}%"
+                lbl2 = f"Exclusive Spending: Adult(s) = {n_a} × {pct_per_adult:.2f}% = {pct_agg_adults:.2f}%"
+                lbl3 = f"Exclusive Spending: Child(ren) = {n_c} × {pct_per_child:.2f}% = {pct_agg_children:.2f}%"
+                d1 = f"${round(total_shared_d, 0):,.0f}"
+                d2 = f"${round(per_adult_d, 0):,.0f}"
+                d3 = f"${round(per_child_d, 0):,.0f}"
+            else:
+                lbl1, lbl2, lbl3 = "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"
+                d1 = d2 = d3 = "—"
+            summary_table_html = f'''
+            <table class="summary-allocation-table">
+              <thead><tr><th>Labels</th><th>Dollars</th></tr></thead>
+              <tbody>
+                <tr><td>{lbl1}</td><td>{d1}</td></tr>
+                <tr><td>{lbl2}</td><td>{d2}</td></tr>
+                <tr><td>{lbl3}</td><td>{d3}</td></tr>
+              </tbody>
+            </table>'''
+            st.caption("Exclusive: per-adult/per-child dollars; label shows N × per-unit % = aggregate %. When allocation form is not loaded, values show —.")
             tab_col, pie_col = st.columns(2)
             with tab_col:
-                st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, height=140)
+                st.markdown(summary_table_html, unsafe_allow_html=True)
             with pie_col:
                 if allocation_display and total_alloc and total_alloc > 0:
                     pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
                     pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
                     try:
                         import plotly.graph_objects as go
-                        fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside")])
-                        fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=False)
+                        fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=14))])
+                        fig.update_layout(title="Budget allocation by household member", margin=dict(t=40, b=20, l=20, r=20), height=380, showlegend=False, font=dict(size=13))
                         st.plotly_chart(fig, use_container_width=True)
                     except Exception:
                         pass
