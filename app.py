@@ -1153,15 +1153,10 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
         lookup = alloc.get(var_code, {}) if show_alloc else {}
         
         row = {
-            'Spending Code': var_code,
             'Spending Description': f"{indent}{description}",
-            'Level': level,
             'Mean Dollars Per Year': item['mean'],
-            'Variance': item['variance'],
-            'Standard Error': item['std_error'],
             'Coefficient of Variation': item['cv'],
-            'Sample Size (n)': item.get('n', np.nan),
-            'Data Quality Category': item.get('quality', 'F'),
+            'Data Quality Flag': item.get('quality', 'F'),
             'Granular Allocation': ga
         }
         # Add Shared Consumption %, Child Intensity Index, and the 3 allocation columns when user has loaded allocation data
@@ -1176,12 +1171,12 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
                     n_adults, n_children
                 )
                 row['Shared Spending'] = shared
-                row['Exclusive Spending Per Child'] = excl_per_child
-                row['Exclusive Spending Per Adult'] = excl_per_adult
+                row['Exclusive Spending per Child'] = excl_per_child
+                row['Exclusive Spending per Adult'] = excl_per_adult
             else:
                 row['Shared Spending'] = np.nan
-                row['Exclusive Spending Per Child'] = np.nan
-                row['Exclusive Spending Per Adult'] = np.nan
+                row['Exclusive Spending per Child'] = np.nan
+                row['Exclusive Spending per Adult'] = np.nan
         display_rows.append(row)
     
     return pd.DataFrame(display_rows)
@@ -1361,8 +1356,20 @@ def main():
             )
             if len(selected_inc) > 0:
                 filters['HH_MajIncSrc'] = selected_inc
+        
+        st.subheader("Vehicles")
+        vehicle_yn = get_unique_values(df, 'VehicleYN')
+        if vehicle_yn:
+            selected_vehicle = st.multiselect(
+                "Owned, leased or operated a vehicle",
+                options=vehicle_yn,
+                format_func=lambda x: format_option_label('VEHICLEYN', x),
+                help="Select one or more options. Leave empty to include all."
+            )
+            if len(selected_vehicle) > 0:
+                filters['VehicleYN'] = selected_vehicle
     
-    # RIGHT COLUMN: Spouse, Children, Vehicles
+    # RIGHT COLUMN: Spouse, Children, Allocation
     with col3:
         st.subheader("Spouse Information")
         # Check if SPOUSEYN exists, otherwise infer from SP_AgeGrp (if it has "96" = No spouse)
@@ -1427,18 +1434,6 @@ def main():
             key="total_children",
             help="Number of children (1–6) for allocation of exclusive spending."
         )
-        
-        st.subheader("Vehicles")
-        vehicle_yn = get_unique_values(df, 'VehicleYN')
-        if vehicle_yn:
-            selected_vehicle = st.multiselect(
-                "Owned, leased or operated a vehicle",
-                options=vehicle_yn,
-                format_func=lambda x: format_option_label('VEHICLEYN', x),
-                help="Select one or more options. Leave empty to include all."
-            )
-            if len(selected_vehicle) > 0:
-                filters['VehicleYN'] = selected_vehicle
     
     # Update session state with current filters for real-time updates
     st.session_state.filters = filters
@@ -1470,18 +1465,28 @@ def main():
     
     st.markdown("**Allocation Input (optional)**")
     st.caption("Upload an Excel file with Shared Consumption % and Child Intensity Index per expenditure category. It will remain in use until replaced by a new upload.")
-    uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
-    if uploaded is not None:
-        parsed, err = parse_allocation_input_excel(uploaded)
-        if err:
-            st.error(f"Could not parse Allocation Input file: {err}")
-        elif parsed:
-            st.session_state['allocation_input'] = parsed
-            try:
-                save_allocation_to_cache(parsed)
-            except Exception:
-                pass
-            st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
+    # Download: anyone can download the form
+    alloc_form_path = Path("Allocation Input Form.xlsx")
+    if alloc_form_path.exists():
+        form_bytes = alloc_form_path.read_bytes()
+        st.download_button("Download Allocation Input Form (Excel)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
+    # Upload: password required (CPC123)
+    pw = st.text_input("Password to upload a new form (required to replace)", type="password", key="alloc_upload_pw", help="Enter CPC123 to enable upload.")
+    if (pw or "") == "CPC123":
+        uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
+        if uploaded is not None:
+            parsed, err = parse_allocation_input_excel(uploaded)
+            if err:
+                st.error(f"Could not parse Allocation Input file: {err}")
+            elif parsed:
+                st.session_state['allocation_input'] = parsed
+                try:
+                    save_allocation_to_cache(parsed)
+                except Exception:
+                    pass
+                st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
+    else:
+        st.caption("Enter password CPC123 to upload and replace the allocation form.")
     if st.session_state.get('allocation_input'):
         st.info("Allocation input is active. For granular allocation rows: Shared Consumption %, Child Intensity Index, Shared Spending, Exclusive Spending Per Child, and Exclusive Spending Per Adult (using Total Adults and Total Children above).")
     
@@ -2066,7 +2071,7 @@ def main():
                                 cell_value = str(row[0].value) if row[0].value else ""
                                 
                                 is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", "Income Quintile Boundaries:", 
-                                                                                     "Spending by Income Quintile", "Household Total Income Range:"])
+                                                                                     "Spending by Income Quintile"])
                                 if is_header:
                                     for cell in row:
                                         cell.font = Font(bold=True, size=11)
@@ -2140,7 +2145,7 @@ def main():
         // Right-justify specific column headers and cells
         function alignNumericColumns() {
             const tables = document.querySelectorAll('div[data-testid="stDataFrame"] table');
-            const numericHeaders = ['Mean Dollars Per Year', 'Variance', 'Standard Error', 'Coefficient of Variation'];
+            const numericHeaders = ['Mean Dollars Per Year', 'Coefficient of Variation', 'Granular Allocation', 'Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult'];
             
             tables.forEach(table => {
                 const headers = Array.from(table.querySelectorAll('thead th'));
@@ -2168,27 +2173,81 @@ def main():
         </script>
         """, unsafe_allow_html=True)
         
-        # Display by expenditure category
-        st.subheader("By Expenditure Category")
-        # Organize results hierarchically
+        # Organize results hierarchically (for summary and table)
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
+        gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data_display) if hierarchical_results else {}
+        allocation_display = st.session_state.get('allocation_input')
+        n_a = max(1, int(st.session_state.get('total_adults', 2)))
+        n_c = max(0, int(st.session_state.get('total_children', 1)))
+        
+        # Summary block (same as Excel): Total Consumption and Gifts, N Adults/Children, Shared/Exclusive with Dollars|Percent
+        total_consumption_gifts = 0
+        if 'Spending Code' in results_df.columns and 'Mean Dollars Per Year' in results_df.columns:
+            total_consumption_gifts = (results_df.loc[results_df['Spending Code'] == 'TC001', 'Mean Dollars Per Year'].sum() +
+                results_df.loc[results_df['Spending Code'] == 'MG001', 'Mean Dollars Per Year'].sum())
+        total_shared_d, total_excl_adult_d, total_excl_child_d = 0.0, 0.0, 0.0
+        if allocation_display and hierarchical_results:
+            for item in hierarchical_results:
+                ga = gran_alloc.get(item['var_code'], np.nan)
+                if not _has_granular_value(ga):
+                    continue
+                lookup = allocation_display.get(item['var_code'], {})
+                v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
+                shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                total_shared_d += shared
+                total_excl_adult_d += n_a * excl_a
+                total_excl_child_d += n_c * excl_c
+        total_alloc = total_shared_d + total_excl_adult_d + total_excl_child_d
+        pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
+        pct_excl_a = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
+        pct_excl_c = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
+        per_adult_d = (total_excl_adult_d / n_a) if n_a else 0
+        per_child_d = (total_excl_child_d / n_c) if n_c else 0
+        
+        sc1, sc2, sc3 = st.columns(3)
+        with sc1:
+            st.metric("Total Consumption and Gifts", f"${round(total_consumption_gifts, 0):,.0f}" if total_consumption_gifts else "—")
+        with sc2:
+            st.metric("Number of Adults", int(n_a))
+        with sc3:
+            st.metric("Number of Children", int(n_c))
+        summary_rows = [
+            {" ": "Shared Spending", "Dollars": f"${round(total_shared_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_shared:.2f}%" if (allocation_display and total_alloc) else "—"},
+            {" ": "Exclusive Spending per Adult", "Dollars": f"${round(per_adult_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_excl_a:.2f}%" if (allocation_display and total_alloc) else "—"},
+            {" ": "Exclusive Spending per Child", "Dollars": f"${round(per_child_d, 0):,.0f}" if (allocation_display and total_alloc) else "—", "Percent": f"{pct_excl_c:.2f}%" if (allocation_display and total_alloc) else "—"},
+        ]
+        st.caption("Dollars and Percent. Exclusive amounts are per Adult and per Child. When allocation form is not loaded, values show —.")
+        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, height=140)
+        
+        # Display by expenditure category (same columns as Excel)
+        st.subheader("By Expenditure Category")
         if hierarchical_results:
             display_df = build_hierarchical_display(
                 hierarchical_results, var_to_node, hierarchy_data_display,
-                allocation_lookup=st.session_state.get('allocation_input'),
-                n_adults=st.session_state.get('total_adults', 2),
-                n_children=st.session_state.get('total_children', 1)
+                allocation_lookup=allocation_display,
+                n_adults=n_a,
+                n_children=n_c
             )
-            # Reorder columns: Code, Description, then numeric/quality, with Granular Allocation after Data Quality
-            display_cols = ['Spending Code', 'Spending Description'] + [c for c in display_df.columns if c not in ['Spending Code', 'Spending Description', 'Level']]
+            exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Flag', 'Granular Allocation']
+            alloc_cols = ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult']
+            display_cols = exp_cols + [c for c in alloc_cols if c in display_df.columns]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]]
             st.dataframe(display_df, use_container_width=True, height=400)
         else:
-            # Fallback to original display if hierarchy not available
-            display_cols = ['Spending Code', 'Spending Description', 'Spending Category'] + [c for c in results_df.columns if c not in ['Spending Code', 'Spending Description', 'Spending Category']]
-            display_df = results_df[[c for c in display_cols if c in results_df.columns]]
-            st.dataframe(display_df, use_container_width=True, height=400)
+            need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
+            fallback_df = results_df[[c for c in need if c in results_df.columns]].copy()
+            if 'Data Quality Category' in fallback_df.columns:
+                fallback_df = fallback_df.rename(columns={'Data Quality Category': 'Data Quality Flag'})
+            else:
+                fallback_df['Data Quality Flag'] = 'F'
+            fallback_df['Granular Allocation'] = ""
+            if allocation_display:
+                for c in ['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult']:
+                    fallback_df[c] = ""
+            exp_cols = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Flag', 'Granular Allocation']
+            fallback_df = fallback_df[[c for c in exp_cols + (['Shared Consumption %', 'Child Intensity Index', 'Shared Spending', 'Exclusive Spending per Child', 'Exclusive Spending per Adult'] if allocation_display else []) if c in fallback_df.columns]]
+            st.dataframe(fallback_df, use_container_width=True, height=400)
         
         # Export options - Single download button
         st.subheader("📥 Export Results")
@@ -2354,14 +2413,18 @@ def main():
                 pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
                 pct_excl_a = (total_excl_adult_d / total_alloc * 100) if total_alloc else 0
                 pct_excl_c = (total_excl_child_d / total_alloc * 100) if total_alloc else 0
+                # Per-adult and per-child amounts (not aggregates)
+                per_adult_d = (total_excl_adult_d / n_a) if n_a else 0
+                per_child_d = (total_excl_child_d / n_c) if n_c else 0
                 
-                # Middle section: Total Consumption and Gifts, N Adults/Children, allocation $ and % (pct to the right of $)
+                # Middle section: Total Consumption and Gifts, N Adults/Children, then header "Dollars"|"Percent" and 3 rows: Shared Spending, Exclusive per Adult, Exclusive per Child
                 all_data.append(["Total Consumption and Gifts", round(total_consumption_gifts, 0) if total_consumption_gifts else 0])
                 all_data.append(["Number of Adults", int(n_a)])
                 all_data.append(["Number of Children", int(n_c)])
-                all_data.append(["Shared Spending - Dollars", round(total_shared_d, 0) if allocation_export else "", "Shared Spending - Percentage", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
-                all_data.append(["Exclusive Spending per Adult - Dollars", round(total_excl_adult_d, 0) if allocation_export else "", "Exclusive Spending per Adult - Percentage", (round(pct_excl_a / 100, 4) if allocation_export and total_alloc else "")])
-                all_data.append(["Exclusive Spending per Child - Dollars", round(total_excl_child_d, 0) if allocation_export else "", "Exclusive Spending per Child - Percentage", (round(pct_excl_c / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["", "Dollars", "Percent"])  # header for the 3 allocation rows
+                all_data.append(["Shared Spending", round(total_shared_d, 0) if allocation_export else "", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export else "", (round(pct_excl_a / 100, 4) if allocation_export and total_alloc else "")])
+                all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export else "", (round(pct_excl_c / 100, 4) if allocation_export and total_alloc else "")])
                 
                 all_data.append([""])
                 all_data.append([""])
@@ -2467,7 +2530,7 @@ def main():
                 
                 # Format section headers
                 is_header = any(keyword in cell_value for keyword in ["Source:", "Filter Criteria:", 
-                                                             "By Expenditure Category", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL", "Household Total Income Range:"])
+                                                             "By Expenditure Category", "Spending Category Breakdown", "Individual Spending Code Breakdown", "TOTAL"])
                 if is_header:
                     for cell in row:
                         cell.font = Font(bold=True, size=11)
@@ -2505,19 +2568,20 @@ def main():
                     elif c in (8, 9, 10) and exp_num_cols >= c:
                         cell.number_format = fmt_currency2
             
-            # Middle section: Total Consumption and Gifts, N Adults/Children, allocation $ and %
+            # Middle section: Total Consumption and Gifts, N Adults/Children, header Dollars|Percent, 3 allocation rows (B=$, C=%)
             for r in range(1, max_row + 1):
                 a1 = ws.cell(row=r, column=1).value
                 if a1 and str(a1).strip() == "Total Consumption and Gifts":
                     ws.cell(row=r, column=2).number_format = fmt_currency0
                     ws.cell(row=r + 1, column=2).number_format = '0'
                     ws.cell(row=r + 2, column=2).number_format = '0'
-                    ws.cell(row=r + 3, column=2).number_format = fmt_currency0
-                    ws.cell(row=r + 3, column=4).number_format = fmt_pct
+                    # r+3: header "Dollars"|"Percent" (text)
                     ws.cell(row=r + 4, column=2).number_format = fmt_currency0
-                    ws.cell(row=r + 4, column=4).number_format = fmt_pct
+                    ws.cell(row=r + 4, column=3).number_format = fmt_pct
                     ws.cell(row=r + 5, column=2).number_format = fmt_currency0
-                    ws.cell(row=r + 5, column=4).number_format = fmt_pct
+                    ws.cell(row=r + 5, column=3).number_format = fmt_pct
+                    ws.cell(row=r + 6, column=2).number_format = fmt_currency0
+                    ws.cell(row=r + 6, column=3).number_format = fmt_pct
                     break
             
             # Auto-adjust column widths for non-expenditure columns (skip A and 2..exp_num_cols; we already set those)
