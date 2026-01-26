@@ -1757,14 +1757,7 @@ def main():
         pwd_col, _pwd_rest = st.columns([1, 4])
         with pwd_col:
             pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
-        c1, c2 = st.columns(2)
-        with c1:
-            confirm_calc = st.button("Confirm and run", key="confirm_calc")
-        with c2:
-            cancel_calc = st.button("Cancel", key="cancel_calc")
-        if cancel_calc:
-            del st.session_state["pending_calculate"]
-            st.rerun()
+        confirm_calc = st.button("Confirm and run", key="confirm_calc")
         if confirm_calc:
             if (pwd_calc or "") != "CPC123":
                 st.error("Incorrect password.")
