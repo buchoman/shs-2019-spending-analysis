@@ -1620,12 +1620,13 @@ def main():
 
     st.markdown("---")
     
-    # Calculate: only show when Total Adults and Total Children are set
+    # Calculate: show when adults/children set or allocation factors are hidden
     _ta = st.session_state.get("total_adults", "— Select —")
     _tc = st.session_state.get("total_children", "— Select —")
     _adults_ok = _ta != "— Select —" and _ta in [1, 2, 3, 4]
     _children_ok = _tc != "— Select —" and _tc in [0, 1, 2, 3, 4, 5, 6]
-    _show_calculate = _adults_ok and _children_ok
+    _hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+    _show_calculate = _hide_allocation_factors or (_adults_ok and _children_ok)
     if _show_calculate:
         btn_col, _ = st.columns([1, 4])
         with btn_col:
@@ -1634,9 +1635,9 @@ def main():
         calculate_income_range = False
         btn_col, _ = st.columns([1, 4])
         with btn_col:
-            st.caption(
-                "Hint: Allocation: Household Composition variables (Total Adults and Total Children) "
-                "must be set before undertaking Spending Analysis."
+            st.warning(
+                "Note: To proceed, you must first hide the Allocation Factors, or set the total number "
+                "of adults and total number of children."
             )
     
     st.markdown("---")
@@ -1644,14 +1645,18 @@ def main():
     def _run_calculation():
         _ta = st.session_state.get("total_adults", "— Select —")
         _tc = st.session_state.get("total_children", "— Select —")
-        if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
-            st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
-            return False
-        if _tc == "— Select —" or _tc not in [0, 1, 2, 3, 4, 5, 6]:
-            st.error("Please select **Total Children** (0–6) in Allocation: Household Composition before calculating.")
-            return False
-        st.session_state["allocation_n_adults"] = int(_ta)
-        st.session_state["allocation_n_children"] = int(_tc)
+        _hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+        if not _hide_allocation_factors:
+            if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
+                st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
+                return False
+            if _tc == "— Select —" or _tc not in [0, 1, 2, 3, 4, 5, 6]:
+                st.error("Please select **Total Children** (0–6) in Allocation: Household Composition before calculating.")
+                return False
+        if _ta != "— Select —" and _ta in [1, 2, 3, 4]:
+            st.session_state["allocation_n_adults"] = int(_ta)
+        if _tc != "— Select —" and _tc in [0, 1, 2, 3, 4, 5, 6]:
+            st.session_state["allocation_n_children"] = int(_tc)
         if len(bootstrap_cols) == 0:
             st.error("No bootstrap weights found in the dataset. Cannot calculate variance estimates.")
             return False
