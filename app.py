@@ -1373,12 +1373,14 @@ def main():
             income_default_min = income_min
             income_default_max = income_max
             
-            income_range = st.slider(
+            income_options = list(range(int(income_min), int(income_max) + 1, 1000))
+            if income_options[-1] != int(income_max):
+                income_options.append(int(income_max))
+            income_range = st.select_slider(
                 "Total Household Income ($)",
-                min_value=int(income_min),
-                max_value=int(income_max),
+                options=income_options,
                 value=(int(income_default_min), int(income_default_max)),
-                step=1000,
+                format_func=lambda x: f"${x:,.0f}",
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
