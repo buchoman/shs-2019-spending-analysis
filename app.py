@@ -1295,7 +1295,7 @@ def main():
     if len(bootstrap_cols) > 0:
         st.info(f"Bootstrap weights loaded: {len(bootstrap_cols)} weights available.")
     # Filters at the top of the page
-    st.header("📊 Select Attributes")
+    st.header("Select Attributes")
     
     # Get unique values for filter variables
     filters = {}
