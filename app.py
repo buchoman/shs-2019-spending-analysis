@@ -1385,6 +1385,7 @@ def main():
             count_placeholder = st.empty()
             button_cols = st.columns([6, 4])
             with button_cols[0]:
+                st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
                 quintile_cutoffs_btn = st.button(
                     "Show/Hide Quintiles",
                     type="secondary",
