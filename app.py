@@ -1266,6 +1266,7 @@ def main():
             background-color: #f0f1f2;
             border-color: #d6d8db;
             color: #1f2933;
+            font-size: 0.85rem;
         }
         div[data-testid="stButton"] button[kind="secondary"]:hover {
             background-color: #e6e8ea;
@@ -1382,7 +1383,7 @@ def main():
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
             count_placeholder = st.empty()
-            button_cols = st.columns([2, 8])
+            button_cols = st.columns([6, 4])
             with button_cols[0]:
                 quintile_cutoffs_btn = st.button(
                     "Show/Hide Quintiles",
