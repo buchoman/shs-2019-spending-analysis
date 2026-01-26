@@ -1162,40 +1162,47 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
     alloc = allocation_lookup if allocation_lookup is not None else {}
     
     for item in hierarchical_results:
-        q = item.get('quality', 'F')
-        if str(q or '').strip().upper() == 'F':
-            continue  # Suppress rows with Quality F
+        q = str(item.get('quality', 'F') or 'F').strip().upper()
+        is_f = (q == 'F')
         level = int(item['level']) if item.get('level') is not None else 0
         indent = " " * (level * INDENT_PER_LEVEL)
         var_code = item['var_code']
         description = item['description']
         ga = gran.get(var_code, np.nan)
-        show_alloc = bool(alloc) and _has_granular_value(ga)
+        show_alloc = bool(alloc) and _has_granular_value(ga) and not is_f
         lookup = alloc.get(var_code, {}) if show_alloc else {}
         
+        # For F: show Expenditure Category and Quality 'F', suppress all numbers
         row = {
             'Expenditure Category': f"{indent}{description}",
-            'Reported $': item['mean'],
+            'Reported $': "" if is_f else item['mean'],
             'Quality': item.get('quality', 'F'),
-            'Allocated $': ga
+            'Allocated $': "" if is_f else ga
         }
         if allocation_lookup is not None:
-            row['Shared %'] = lookup.get('shared_pct') if show_alloc else np.nan
-            row['Child Intensity'] = lookup.get('child_intensity') if show_alloc else np.nan
-            if show_alloc:
-                shared, excl_per_child, excl_per_adult = _allocation_split(
-                    item['mean'],
-                    lookup.get('shared_pct'),
-                    lookup.get('child_intensity'),
-                    n_adults, n_children
-                )
-                row['Shared $'] = shared
-                row['Exclusive (Adult) $'] = excl_per_adult
-                row['Exclusive (Child) $'] = excl_per_child
+            if is_f:
+                row['Shared %'] = ""
+                row['Child Intensity'] = ""
+                row['Shared $'] = ""
+                row['Exclusive (Adult) $'] = ""
+                row['Exclusive (Child) $'] = ""
             else:
-                row['Shared $'] = np.nan
-                row['Exclusive (Adult) $'] = np.nan
-                row['Exclusive (Child) $'] = np.nan
+                row['Shared %'] = lookup.get('shared_pct') if show_alloc else np.nan
+                row['Child Intensity'] = lookup.get('child_intensity') if show_alloc else np.nan
+                if show_alloc:
+                    shared, excl_per_child, excl_per_adult = _allocation_split(
+                        item['mean'],
+                        lookup.get('shared_pct'),
+                        lookup.get('child_intensity'),
+                        n_adults, n_children
+                    )
+                    row['Shared $'] = shared
+                    row['Exclusive (Adult) $'] = excl_per_adult
+                    row['Exclusive (Child) $'] = excl_per_child
+                else:
+                    row['Shared $'] = np.nan
+                    row['Exclusive (Adult) $'] = np.nan
+                    row['Exclusive (Child) $'] = np.nan
         display_rows.append(row)
     
     return pd.DataFrame(display_rows)
@@ -1314,7 +1321,18 @@ def main():
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
-            quintile_cutoffs_btn = st.button("Find Quintile Cutoffs", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).", key="quintile_btn_col1")
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            qbtn_col, qtext_col = st.columns([1, 4])
+            with qbtn_col:
+                st.markdown('<div style="background:#e8f4fc;border-radius:6px;padding:6px;margin:0 0 4px 0;">&nbsp;</div>', unsafe_allow_html=True)
+                quintile_cutoffs_btn = st.button("Find Quintile Cutoffs", use_container_width=True, help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).", key="quintile_btn_col1")
+                st.markdown('<div style="background:#e8f4fc;border-radius:6px;padding:6px;margin:4px 0 0 0;">&nbsp;</div>', unsafe_allow_html=True)
+            with qtext_col:
+                cutoffs = st.session_state.get('quintile_cutoffs')
+                if cutoffs and len(cutoffs) >= 4:
+                    qline = f"Q1–Q2: ${cutoffs[0]:,.0f}   |   Q2–Q3: ${cutoffs[1]:,.0f}   |   Q3–Q4: ${cutoffs[2]:,.0f}   |   Q4–Q5: ${cutoffs[3]:,.0f}"
+                    st.markdown(f"<div style='padding:8px 0;font-size:0.95rem;'>{qline}</div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
         else:
             income_range = None
             quintile_cutoffs_btn = False
@@ -1473,7 +1491,7 @@ def main():
     # Store filtered count in session state
     st.session_state.filtered_count = filtered_count
     
-    # Quintile cutoffs: run when button (in col1) was clicked; show output above Spending Estimates
+    # Quintile cutoffs: when button clicked, compute and store; display is to the right of button in col1
     if quintile_cutoffs_btn:
         fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
         if 'HH_TotInc' not in fq.columns:
@@ -1498,9 +1516,7 @@ def main():
                     i = min(i, len(inc_s) - 1)
                     cutoffs.append(float(inc_s[i]))
                 st.session_state.quintile_cutoffs = cutoffs
-                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
-                tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
-                st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
+                st.rerun()
     
     # Main content area
     st.header("📈 Spending Estimates")
@@ -1553,6 +1569,7 @@ def main():
             calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
     else:
         calculate_income_range = False
+        st.info("Please select **Number of adults** and **Number of children** in *Allocation: Household Composition* before calculations are available.")
     
     st.markdown("---")
     
@@ -1709,7 +1726,7 @@ def main():
         /* Summary allocation table: 2 cols, larger font to match pie */
         .summary-allocation-table { font-size: 1.1rem; border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
         .summary-allocation-table th { background: #2c3e50; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 1.05rem; }
-        .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #fafbfc; font-size: 1.05rem; }
+        .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #f0f8ff; font-size: 1.05rem; }
         .summary-allocation-table tr:last-child td { border-bottom: none; }
         .summary-allocation-table td:last-child { text-align: right; font-weight: 500; }
         /* Spending Percentages: prominent block above the table */
@@ -1865,10 +1882,13 @@ def main():
         else:
             need = ['Spending Description', 'Mean Dollars Per Year', 'Data Quality Category']
             fallback_df = results_df[[c for c in need if c in results_df.columns]].copy()
-            if 'Data Quality Category' in fallback_df.columns:
-                fallback_df = fallback_df[fallback_df['Data Quality Category'].fillna('F').astype(str).str.upper().str.strip() != 'F']
             fallback_df = fallback_df.rename(columns={'Spending Description': 'Expenditure Category', 'Mean Dollars Per Year': 'Reported $', 'Data Quality Category': 'Quality'})
             fallback_df['Allocated $'] = ""
+            # F rows: show Quality 'F' but suppress numbers
+            if 'Quality' in fallback_df.columns:
+                f_mask = fallback_df['Quality'].fillna('F').astype(str).str.upper().str.strip() == 'F'
+                fallback_df.loc[f_mask, 'Reported $'] = ""
+                fallback_df.loc[f_mask, 'Allocated $'] = ""
             if allocation_display:
                 for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
                     fallback_df[c] = ""
@@ -2078,46 +2098,48 @@ def main():
                     INDENT_PER_LEVEL = 2
                     for item in hierarchical_results_export:
                         quality = str(item.get('quality', 'F') or 'F').strip().upper()
-                        if quality == 'F':
-                            continue
+                        is_f = (quality == 'F')
                         level = int(item['level']) if item.get('level') is not None else 0
                         indent = " " * (level * INDENT_PER_LEVEL)
                         var_code = item['var_code']
                         description = item['description']
                         ga = gran_alloc.get(var_code, np.nan)
-                        ga_display = "" if (ga is None or (isinstance(ga, float) and np.isnan(ga))) else round(ga, 2)
+                        ga_display = "" if is_f or (ga is None or (isinstance(ga, float) and np.isnan(ga))) else round(ga, 2)
                         row = [
                             f"{indent}{description}",
-                            round(item['mean'], 2),
+                            "" if is_f else round(item['mean'], 2),
                             quality,
                             ga_display
                         ]
                         if allocation_export is not None:
-                            show_alloc = _has_granular_value(ga)
-                            lookup = allocation_export.get(var_code, {}) if show_alloc else {}
-                            v1 = lookup.get('shared_pct')
-                            v2 = lookup.get('child_intensity')
-                            s = (v1 / 100 if (isinstance(v1, (int, float)) and v1 > 1) else v1) if v1 is not None else None
-                            row.append(round(s, 4) if s is not None else "")  # fraction for Excel 0.00%
-                            row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
-                            if show_alloc:
-                                shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
-                                row.append(round(shared, 2))
-                                row.append(round(excl_a, 2))
-                                row.append(round(excl_c, 2))
+                            if is_f:
+                                row.extend(["", "", "", "", ""])
                             else:
-                                row.extend(["", "", ""])
+                                show_alloc = _has_granular_value(ga)
+                                lookup = allocation_export.get(var_code, {}) if show_alloc else {}
+                                v1 = lookup.get('shared_pct')
+                                v2 = lookup.get('child_intensity')
+                                s = (v1 / 100 if (isinstance(v1, (int, float)) and v1 > 1) else v1) if v1 is not None else None
+                                row.append(round(s, 4) if s is not None else "")
+                                row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
+                                if show_alloc:
+                                    shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                                    row.append(round(shared, 2))
+                                    row.append(round(excl_a, 2))
+                                    row.append(round(excl_c, 2))
+                                else:
+                                    row.extend(["", "", ""])
                         all_data.append(row)
                 else:
                     need = ['Spending Description', 'Mean Dollars Per Year', 'Data Quality Category']
                     results_export = results_df[[c for c in need if c in results_df.columns]].copy()
-                    if 'Data Quality Category' in results_export.columns:
-                        results_export = results_export[results_export['Data Quality Category'].fillna('F').astype(str).str.upper().str.strip() != 'F']
                     for _, r in results_export.iterrows():
+                        qual = str(r.get('Data Quality Category', 'F') or 'F').strip().upper()
+                        is_f = (qual == 'F')
                         data_row = [
                             r.get('Spending Description', ''),
-                            round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else "",
-                            r.get('Data Quality Category', 'F'),
+                            "" if is_f else (round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else ""),
+                            qual,
                             ""
                         ]
                         if allocation_export is not None:
