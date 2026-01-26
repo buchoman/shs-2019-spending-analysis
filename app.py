@@ -1185,6 +1185,15 @@ def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     return shared, excl_per_child, excl_per_adult
 
 
+def _force_shared_allocation(allocation_lookup):
+    if not allocation_lookup:
+        return allocation_lookup
+    return {
+        var_code: {"shared_pct": 1, "child_intensity": 0}
+        for var_code in allocation_lookup.keys()
+    }
+
+
 def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
@@ -1643,6 +1652,7 @@ def main():
         _ta = st.session_state.get("total_adults", "— Select —")
         _tc = st.session_state.get("total_children", "— Select —")
         _hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+        st.session_state["force_shared_allocation"] = bool(_hide_allocation_factors)
         if not _hide_allocation_factors:
             if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
                 st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
@@ -1850,6 +1860,8 @@ def main():
         )
         gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data_display) if hierarchical_results else {}
         allocation_display = st.session_state.get('allocation_input')
+        force_shared_allocation = st.session_state.get("force_shared_allocation", False)
+        allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
         n_a = int(st.session_state.get('allocation_n_adults', 2))
         n_c = int(st.session_state.get('allocation_n_children', 0))
         hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
@@ -1860,12 +1872,12 @@ def main():
             total_consumption_gifts = (results_df.loc[results_df['Spending Code'] == 'TC001', 'Mean Dollars Per Year'].sum() +
                 results_df.loc[results_df['Spending Code'] == 'MG001', 'Mean Dollars Per Year'].sum())
         total_shared_d, total_excl_adult_d, total_excl_child_d = 0.0, 0.0, 0.0
-        if allocation_display and hierarchical_results:
+        if allocation_calc and hierarchical_results:
             for item in hierarchical_results:
                 ga = gran_alloc.get(item['var_code'], np.nan)
                 if not _has_granular_value(ga):
                     continue
-                lookup = allocation_display.get(item['var_code'], {})
+                lookup = allocation_calc.get(item['var_code'], {})
                 v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
                 shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
                 total_shared_d += shared
@@ -1895,7 +1907,7 @@ def main():
         with main_col:
             if not hide_allocation_factors:
                 # Table: 2 columns only — Labels (with % in label) and Dollars
-                if allocation_display and total_alloc:
+                if allocation_calc and total_alloc:
                     lbl1 = f"Shared Spending = {pct_shared:.2f}%"
                     lbl2 = f"Exclusive Spending: Adult(s) = {n_a} × {pct_per_adult:.2f}% = {pct_agg_adults:.2f}%"
                     lbl3 = f"Exclusive Spending: Child(ren) = {n_c} × {pct_per_child:.2f}% = {pct_agg_children:.2f}%"
@@ -1916,12 +1928,12 @@ def main():
                 </table>'''
                 tab_col, pie_col = st.columns(2)
                 with tab_col:
-                    if allocation_display and total_alloc:
+                    if allocation_calc and total_alloc:
                         pct_block = f'''<div class="spending-pct-prominent">Shared <span class="pct-val">{pct_shared:.2f}%</span> · Exclusive – Adults: <span class="pct-val">{pct_agg_adults:.2f}%</span> · Exclusive – Children: <span class="pct-val">{pct_agg_children:.2f}%</span></div>'''
                         st.markdown(pct_block, unsafe_allow_html=True)
                     st.markdown(summary_table_html, unsafe_allow_html=True)
                 with pie_col:
-                    if allocation_display and total_alloc and total_alloc > 0:
+                    if allocation_calc and total_alloc and total_alloc > 0:
                         pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
                         pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
                         try:
@@ -1944,10 +1956,10 @@ def main():
             if fmt == 'score': return f"{float(x):.2f}" if isinstance(x, (int, float)) else (str(x) if x != "" else "")
             return str(x) if x != "" else ""
         if hierarchical_results:
-            show_allocation_columns = bool(allocation_display) and not hide_allocation_factors
+            show_allocation_columns = bool(allocation_calc) and not hide_allocation_factors
             display_df = build_hierarchical_display(
                 hierarchical_results, var_to_node, hierarchy_data_display,
-                allocation_lookup=allocation_display if show_allocation_columns else None,
+                allocation_lookup=allocation_calc if show_allocation_columns else None,
                 n_adults=n_a,
                 n_children=n_c
             )
@@ -2137,6 +2149,8 @@ def main():
                 
                 # Prepare allocation and hierarchy for middle section and expenditure table
                 allocation_export = st.session_state.get('allocation_input')
+                force_shared_allocation = st.session_state.get("force_shared_allocation", False)
+                allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
                 hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
                 hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
@@ -2163,12 +2177,12 @@ def main():
                 total_shared_d = 0.0
                 total_excl_adult_d = 0.0
                 total_excl_child_d = 0.0
-                if allocation_export and hierarchical_results_export:
+                if allocation_export_calc and hierarchical_results_export:
                     for item in hierarchical_results_export:
                         ga = gran_alloc.get(item['var_code'], np.nan)
                         if not _has_granular_value(ga):
                             continue
-                        lookup = allocation_export.get(item['var_code'], {})
+                        lookup = allocation_export_calc.get(item['var_code'], {})
                         v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
                         shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
                         total_shared_d += shared
@@ -2188,9 +2202,9 @@ def main():
                 all_data.append(["Number of Children", int(n_c)])
                 if not hide_allocation_factors:
                     all_data.append(["", "Dollars", "Percent"])  # header for the 3 allocation rows
-                    all_data.append(["Shared Spending", round(total_shared_d, 0) if allocation_export else "", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
-                    all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export else "", (round(pct_per_adult / 100, 4) if allocation_export and total_alloc else "")])
-                    all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export else "", (round(pct_per_child / 100, 4) if allocation_export and total_alloc else "")])
+                    all_data.append(["Shared Spending", round(total_shared_d, 0) if allocation_export_calc else "", (round(pct_shared / 100, 4) if allocation_export_calc and total_alloc else "")])
+                    all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export_calc else "", (round(pct_per_adult / 100, 4) if allocation_export_calc and total_alloc else "")])
+                    all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export_calc else "", (round(pct_per_child / 100, 4) if allocation_export_calc and total_alloc else "")])
                 
                 all_data.append([""])
                 all_data.append([""])
@@ -2198,7 +2212,7 @@ def main():
                 # BOTTOM SECTION: Expenditure Categories (new column titles, no CV, suppress F)
                 all_data.append(["Results"])
                 exp_header = ["Expenditure Category", "Reported $", "Coefficient of Variation", "Quality", "Allocated $"]
-                if allocation_export is not None and not hide_allocation_factors:
+                if allocation_export_calc is not None and not hide_allocation_factors:
                     exp_header += ["Shared %", "Child Intensity", "Shared $", "Exclusive (Adult) $", "Exclusive (Child) $"]
                 all_data.append(exp_header)
                 exp_header_excel_row = len(all_data)
@@ -2222,12 +2236,12 @@ def main():
                             quality,
                             ga_display
                         ]
-                        if allocation_export is not None and not hide_allocation_factors:
+                        if allocation_export_calc is not None and not hide_allocation_factors:
                             if is_f:
                                 row.extend([0, 0, 0, 0, 0])
                             else:
                                 show_alloc = _has_granular_value(ga)
-                                lookup = allocation_export.get(var_code, {}) if show_alloc else {}
+                                lookup = allocation_export_calc.get(var_code, {}) if show_alloc else {}
                                 v1 = lookup.get('shared_pct')
                                 v2 = lookup.get('child_intensity')
                                 s = (v1 / 100 if (isinstance(v1, (int, float)) and v1 > 1) else v1) if v1 is not None else None
@@ -2254,7 +2268,7 @@ def main():
                             qual,
                             0 if is_f else ""
                         ]
-                        if allocation_export is not None and not hide_allocation_factors:
+                        if allocation_export_calc is not None and not hide_allocation_factors:
                             data_row.extend([0, 0, 0, 0, 0] if is_f else ["", "", "", "", ""])
                         all_data.append(data_row)
                 
