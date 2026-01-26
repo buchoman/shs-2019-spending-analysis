@@ -1545,9 +1545,23 @@ def main():
     # Display matching records count box
     target_placeholder = count_placeholder or st.empty()
     if filtered_count == 0:
-        target_placeholder.warning("**0 records** match your selected criteria. Please adjust your selections.")
+        target_placeholder.markdown(
+            """
+            <div style="font-size:1.2rem; font-weight:600; padding:0.6rem 0.8rem; border-radius:0.5rem; background:#fff3cd; border:1px solid #ffecb5; color:#664d03;">
+                0 records match your selected criteria. Please adjust your selections.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        target_placeholder.info(f"**{filtered_count:,} records** match your selected criteria.")
+        target_placeholder.markdown(
+            f"""
+            <div style="font-size:1.2rem; font-weight:600; padding:0.6rem 0.8rem; border-radius:0.5rem; background:#e8f4ff; border:1px solid #b6d4fe; color:#084298;">
+                <span style="font-size:1.4rem; font-weight:700;">{filtered_count:,}</span> records match your selected criteria.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     
     # Store filtered count in session state
     st.session_state.filtered_count = filtered_count
