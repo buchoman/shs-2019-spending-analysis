@@ -1556,7 +1556,6 @@ def main():
                     i = min(i, len(inc_s) - 1)
                     cutoffs.append(float(inc_s[i]))
                 st.session_state.quintile_cutoffs = cutoffs
-                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
                 tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
                 table_cols = st.columns([1, 4])
                 with table_cols[0]:
