@@ -1289,7 +1289,7 @@ def main():
     
     st.success(f"Data loaded successfully! {len(df):,} records.")
     # Filters at the top of the page
-    st.header("📊 Select Attributes")
+    st.header("Select Attributes")
     
     # Get unique values for filter variables
     filters = {}
