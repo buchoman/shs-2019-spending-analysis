@@ -1176,8 +1176,12 @@ def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     n_c = max(0, int(n_children) if n_children is not None else 0)
     shared = s * M
     excl_total = (1 - s) * M
-    excl_per_child = ((c_idx / 10) * excl_total / n_c) if n_c > 0 else 0.0
-    excl_per_adult = ((10 - c_idx) / 10) * excl_total / n_a
+    if n_c > 0:
+        excl_per_child = (c_idx / 10) * excl_total / n_c
+        excl_per_adult = ((10 - c_idx) / 10) * excl_total / n_a
+    else:
+        excl_per_child = 0.0
+        excl_per_adult = excl_total / n_a
     return shared, excl_per_child, excl_per_adult
 
 
