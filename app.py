@@ -1364,6 +1364,7 @@ def main():
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
+            count_placeholder = st.empty()
             quintile_cutoffs_btn = st.button(
                 "Find Quintile Cutoffs",
                 use_container_width=True,
@@ -1373,6 +1374,7 @@ def main():
         else:
             income_range = None
             quintile_cutoffs_btn = False
+            count_placeholder = None
     
     # MIDDLE COLUMN: Reference Person Demographics
     with col2:
@@ -1520,10 +1522,11 @@ def main():
     filtered_count = len(filtered_df)
     
     # Display matching records count box
+    target_placeholder = count_placeholder or st.empty()
     if filtered_count == 0:
-        st.warning("**0 records** match your selected criteria. Please adjust your selections.")
+        target_placeholder.warning("**0 records** match your selected criteria. Please adjust your selections.")
     else:
-        st.info(f"**{filtered_count:,} records** match your selected criteria.")
+        target_placeholder.info(f"**{filtered_count:,} records** match your selected criteria.")
     
     # Store filtered count in session state
     st.session_state.filtered_count = filtered_count
