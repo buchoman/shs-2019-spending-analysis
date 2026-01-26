@@ -1354,15 +1354,8 @@ def main():
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
-            quintile_cutoffs_btn = st.button(
-                "Find Quintile Cutoffs",
-                use_container_width=True,
-                help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
-                key="quintile_btn_col1"
-            )
         else:
             income_range = None
-            quintile_cutoffs_btn = False
     
     # MIDDLE COLUMN: Reference Person Demographics
     with col2:
@@ -1518,34 +1511,8 @@ def main():
     # Store filtered count in session state
     st.session_state.filtered_count = filtered_count
     
-    # Quintile cutoffs: run when button (in col1) was clicked
-    if quintile_cutoffs_btn:
-        fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
-        if 'HH_TotInc' not in fq.columns:
-            st.error("Household total income (HH_TotInc) not found.")
-        else:
-            inc = fq['HH_TotInc'].dropna()
-            w = fq.loc[inc.index, 'WeightD'] if 'WeightD' in fq.columns else pd.Series(1.0, index=inc.index)
-            w = w.fillna(0)
-            valid = (inc.notna()) & (w > 0)
-            inc, w = inc[valid], w[valid]
-            if len(inc) == 0:
-                st.error("No valid income data in the filtered sample.")
-            else:
-                ord = np.argsort(inc.values)
-                inc_s, w_s = inc.values[ord], w.values[ord]
-                cw = np.cumsum(w_s)
-                tw = cw[-1]
-                cutoffs = []
-                for p in [20, 40, 60, 80]:
-                    t = tw * (p / 100)
-                    i = np.searchsorted(cw, t, side='left')
-                    i = min(i, len(inc_s) - 1)
-                    cutoffs.append(float(inc_s[i]))
-                st.session_state.quintile_cutoffs = cutoffs
-                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
-                tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
-                st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
+    if "show_quintile_cutoffs" not in st.session_state:
+        st.session_state.show_quintile_cutoffs = False
     
     # Main content area
     st.header("📈 Spending Analysis")
@@ -1842,6 +1809,29 @@ def main():
         n_a = int(st.session_state.get('allocation_n_adults', 2))
         n_c = int(st.session_state.get('allocation_n_children', 0))
         hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+
+        def _compute_quintile_cutoffs():
+            fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
+            if 'HH_TotInc' not in fq.columns:
+                return None, "Household total income (HH_TotInc) not found."
+            inc = fq['HH_TotInc'].dropna()
+            w = fq.loc[inc.index, 'WeightD'] if 'WeightD' in fq.columns else pd.Series(1.0, index=inc.index)
+            w = w.fillna(0)
+            valid = (inc.notna()) & (w > 0)
+            inc, w = inc[valid], w[valid]
+            if len(inc) == 0:
+                return None, "No valid income data in the filtered sample."
+            ord = np.argsort(inc.values)
+            inc_s, w_s = inc.values[ord], w.values[ord]
+            cw = np.cumsum(w_s)
+            tw = cw[-1]
+            cutoffs = []
+            for p in [20, 40, 60, 80]:
+                t = tw * (p / 100)
+                i = np.searchsorted(cw, t, side='left')
+                i = min(i, len(inc_s) - 1)
+                cutoffs.append(float(inc_s[i]))
+            return cutoffs, None
         
         # Summary block (same as Excel): Total Consumption and Gifts, N Adults/Children, Shared/Exclusive with Dollars|Percent
         total_consumption_gifts = 0
@@ -1921,6 +1911,36 @@ def main():
                         pass
         
         # Display by expenditure category (same columns as Excel)
+        quintile_label = "Hide Quintile Cutoffs" if st.session_state.show_quintile_cutoffs else "Show Quintile Cutoffs"
+        if st.button(
+            quintile_label,
+            use_container_width=True,
+            help="Show or hide the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
+            key="quintile_btn_toggle"
+        ):
+            st.session_state.show_quintile_cutoffs = not st.session_state.show_quintile_cutoffs
+            if st.session_state.show_quintile_cutoffs:
+                cutoffs, err = _compute_quintile_cutoffs()
+                st.session_state.quintile_cutoffs = cutoffs
+                st.session_state.quintile_cutoffs_error = err
+            else:
+                st.session_state.pop("quintile_cutoffs_error", None)
+
+        if st.session_state.show_quintile_cutoffs:
+            err = st.session_state.get("quintile_cutoffs_error")
+            cutoffs = st.session_state.get("quintile_cutoffs")
+            if err:
+                st.error(err)
+            elif cutoffs:
+                st.success("Quintile cutoffs (20th, 40th, 60th, 80th percentiles of household income):")
+                tab = [
+                    ["Q1–Q2", f"${cutoffs[0]:,.0f}"],
+                    ["Q2–Q3", f"${cutoffs[1]:,.0f}"],
+                    ["Q3–Q4", f"${cutoffs[2]:,.0f}"],
+                    ["Q4–Q5", f"${cutoffs[3]:,.0f}"]
+                ]
+                st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
+
         st.subheader("Allocation by Expenditure Category")
         _quality_help = "**Quality:** A = Publish (C.V.<16.6%); E = Use with Caution (16.6%≤CV<35%); F = Suppress (CV≥35%)."
         _child_help = "**Child Intensity:** For every ten units of exclusive spending in a home containing adults and children, a 0.00 score means that 100% is spent on a representative adult, a 1.00 score means that 100% is spent on a representative child, and a 0.50 score means equal spending on children and adults."
