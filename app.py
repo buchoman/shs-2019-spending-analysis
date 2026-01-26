@@ -1278,7 +1278,7 @@ def main():
     income_range = None  # Initialize income range
     
     # Create columns for filters: Left, Middle, Right
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns(3, gap="large")
     
     # LEFT COLUMN: Geography, Household Characteristics
     with col1:
