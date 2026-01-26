@@ -1378,6 +1378,7 @@ def main():
                 min_value=int(income_min),
                 max_value=int(income_max),
                 value=(int(income_default_min), int(income_default_max)),
+                format="$%,d",
                 step=1000,
                 help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
             )
