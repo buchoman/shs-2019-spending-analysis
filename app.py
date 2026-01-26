@@ -1598,7 +1598,7 @@ def main():
                     st.dataframe(pd.DataFrame(tab, columns=["Boundary", "Income"]), use_container_width=True, hide_index=True)
     
     # Main content area
-    st.header("📈 Spending Analysis")
+    st.header("Spending Analysis")
     
     if len(filtered_df) == 0:
         return
