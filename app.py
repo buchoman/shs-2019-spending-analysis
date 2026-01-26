@@ -1259,6 +1259,23 @@ def main():
     This application allows you to select demographic attributes and get detailed estimates 
     of average household spending (in dollars per year) with bootstrap variance estimates.
     """)
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stButton"] button[kind="secondary"] {
+            background-color: #f0f1f2;
+            border-color: #d6d8db;
+            color: #1f2933;
+        }
+        div[data-testid="stButton"] button[kind="secondary"]:hover {
+            background-color: #e6e8ea;
+            border-color: #c8ccd1;
+            color: #1f2933;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     
     # Load data and hierarchy
     with st.spinner("Loading data..."):
@@ -1365,17 +1382,15 @@ def main():
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
             count_placeholder = st.empty()
-            quintile_cols = st.columns([1, 4])
-            with quintile_cols[0]:
-                show_quintile_cutoffs = st.session_state.get("show_quintile_cutoffs", False)
-                quintile_button_label = "Hide Quintile Cutoffs" if show_quintile_cutoffs else "Show Quintile Cutoffs"
-                quintile_cutoffs_btn = st.button(
-                    quintile_button_label,
-                    type="primary",
-                    use_container_width=True,
-                    help="Toggle the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
-                    key="quintile_btn_col1"
-                )
+            show_quintile_cutoffs = st.session_state.get("show_quintile_cutoffs", False)
+            quintile_button_label = "Show Quintile Cutoffs" if show_quintile_cutoffs else "Hide Quintile Cutoffs"
+            quintile_cutoffs_btn = st.button(
+                quintile_button_label,
+                type="secondary",
+                use_container_width=True,
+                help="Toggle the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
+                key="quintile_btn_col1"
+            )
         else:
             income_range = None
             quintile_cutoffs_btn = False
