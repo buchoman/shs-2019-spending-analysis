@@ -1938,8 +1938,16 @@ def main():
                         pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
                         try:
                             import plotly.graph_objects as go
-                            fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=16))])
-                            fig.update_layout(margin=dict(t=24, b=20, l=20, r=20), height=280, showlegend=False, font=dict(size=13))
+                            fig = go.Figure(data=[go.Pie(
+                                labels=pie_labels,
+                                values=pie_values,
+                                hole=0.35,
+                                textinfo="none",
+                                textposition="outside",
+                                texttemplate="%{label}<br>%{percent:.2%}",
+                                textfont=dict(size=13, color="#1f2933")
+                            )])
+                            fig.update_layout(margin=dict(t=24, b=60, l=20, r=20), height=240, showlegend=False, font=dict(size=13))
                             st.plotly_chart(fig, use_container_width=True)
                         except Exception:
                             pass
