@@ -1527,30 +1527,38 @@ def main():
         st.session_state['allocation_input'] = cached if isinstance(cached, dict) else None
     
     st.markdown("**Allocation Input (optional)**")
-    st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
-    alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
-    pw_col, _pw_rest = st.columns([1, 4])
-    with pw_col:
-        pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw")
-    if (pw or "") == "CPC123":
-        st.session_state["password_verified"] = True
-        if alloc_form_path.exists():
-            form_bytes = alloc_form_path.read_bytes()
-            st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
-        else:
-            st.caption("Allocation Input Form.xlsx not found in project root; add it to enable download.")
-        uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
-        if uploaded is not None:
-            parsed, err = parse_allocation_input_excel(uploaded)
-            if err:
-                st.error(f"Could not parse Allocation Input file: {err}")
-            elif parsed:
-                st.session_state['allocation_input'] = parsed
-                try:
-                    save_allocation_to_cache(parsed)
-                except Exception:
-                    pass
-                st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
+    alloc_mode = st.radio(
+        "Allocation mode",
+        ["Default Allocations", "Custom Allocations"],
+        index=0,
+        horizontal=True,
+        key="allocation_mode",
+    )
+    if alloc_mode == "Custom Allocations":
+        st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
+        alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
+        pw_col, _pw_rest = st.columns([1, 4])
+        with pw_col:
+            pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw")
+        if (pw or "") == "CPC123":
+            st.session_state["password_verified"] = True
+            if alloc_form_path.exists():
+                form_bytes = alloc_form_path.read_bytes()
+                st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
+            else:
+                st.caption("Allocation Input Form.xlsx not found in project root; add it to enable download.")
+            uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
+            if uploaded is not None:
+                parsed, err = parse_allocation_input_excel(uploaded)
+                if err:
+                    st.error(f"Could not parse Allocation Input file: {err}")
+                elif parsed:
+                    st.session_state['allocation_input'] = parsed
+                    try:
+                        save_allocation_to_cache(parsed)
+                    except Exception:
+                        pass
+                    st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
     
     st.markdown("---")
     
@@ -1669,7 +1677,9 @@ def main():
             st.session_state["pending_calculate"] = True
     
     if st.session_state.get("pending_calculate"):
-        pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
+        pwd_col, _pwd_rest = st.columns([1, 4])
+        with pwd_col:
+            pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
         c1, c2 = st.columns(2)
         with c1:
             confirm_calc = st.button("Confirm and run", key="confirm_calc")
@@ -2310,4 +2320,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-
