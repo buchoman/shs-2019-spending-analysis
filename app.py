@@ -1267,9 +1267,6 @@ def main():
     st.success(f"Data loaded successfully! {len(df):,} records.")
     if len(bootstrap_cols) > 0:
         st.info(f"Bootstrap weights loaded: {len(bootstrap_cols)} weights available.")
-    if hierarchy_data:
-        st.info(f"Hierarchy structure loaded: {len(hierarchy_data.get('var_to_node', {}))} variables.")
-    
     # Filters at the top of the page
     st.header("📊 Select Attributes")
     
