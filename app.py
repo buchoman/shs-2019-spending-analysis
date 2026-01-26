@@ -1292,8 +1292,6 @@ def main():
     df, bootstrap_cols = get_bootstrap_weights(df, df_bsw)
     
     st.success(f"Data loaded successfully! {len(df):,} records.")
-    if len(bootstrap_cols) > 0:
-        st.info(f"Bootstrap weights loaded: {len(bootstrap_cols)} weights available.")
     # Filters at the top of the page
     st.header("📊 Select Attributes")
     
