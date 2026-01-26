@@ -1598,15 +1598,21 @@ def main():
         key="hide_allocation_factors",
         help="Turn on to hide allocation factor columns in the expenditure table."
     )
-    st.slider(
-        "Level of Granularity",
-        min_value=3,
-        max_value=7,
-        value=7,
-        step=1,
-        key="granularity_level",
-        help="Select the maximum hierarchy level to include. Level 7 includes the most detailed categories."
-    )
+    granularity_cols = st.columns([1, 4])
+    with granularity_cols[0]:
+        granularity_level = st.slider(
+            "Level of Granularity",
+            min_value=3,
+            max_value=7,
+            value=7,
+            step=1,
+            key="granularity_level",
+            help="Select the maximum hierarchy level to include. Level 7 includes the most detailed categories.",
+        )
+        st.markdown(
+            f"<div style='text-align:center; font-size:1.4rem; font-weight:700;'>Level {granularity_level}</div>",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
     
