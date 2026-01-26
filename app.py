@@ -1045,6 +1045,38 @@ def organize_hierarchical_results(results_df, hierarchy_data):
     return hierarchical_results, var_to_node
 
 
+def _level_from_node(var_to_node, var_code):
+    level = var_to_node.get(var_code, {}).get('level')
+    if level is None:
+        return None
+    try:
+        return int(level)
+    except (TypeError, ValueError):
+        return None
+
+
+def filter_results_by_granularity(hierarchical_results, var_to_node, max_level):
+    if max_level is None:
+        return hierarchical_results
+    filtered = []
+    for item in hierarchical_results:
+        level = _level_from_node(var_to_node, item['var_code'])
+        if level is None or level <= max_level:
+            filtered.append(item)
+    return filtered
+
+
+def filter_vars_by_granularity(var_codes, var_to_node, max_level):
+    if max_level is None:
+        return list(var_codes)
+    filtered = []
+    for var_code in var_codes:
+        level = _level_from_node(var_to_node, var_code)
+        if level is None or level <= max_level:
+            filtered.append(var_code)
+    return filtered
+
+
 def _get_direct_children(var_code, hierarchy_order, var_to_node):
     """Return direct children of var_code in the tree, from hierarchy_order (depth-first).
     Direct children are nodes at level L+1 in the segment after var_code until we rise to level <= L."""
@@ -1559,7 +1591,23 @@ def main():
                     except Exception:
                         pass
                     st.success(f"Allocation input loaded for {len(parsed)} categories. It will remain valid until replaced.")
-    
+
+    st.toggle(
+        "Hide allocation factors",
+        value=False,
+        key="hide_allocation_factors",
+        help="Turn on to hide allocation factor columns in the expenditure table."
+    )
+    st.slider(
+        "Level of Granularity",
+        min_value=3,
+        max_value=7,
+        value=7,
+        step=1,
+        key="granularity_level",
+        help="Select the maximum hierarchy level to include. Level 7 includes the most detailed categories."
+    )
+
     st.markdown("---")
     
     # Calculate: only show when Total Adults and Total Children are set
@@ -1600,8 +1648,16 @@ def main():
         def variable_exists(df, var):
             return (var in df.columns or (var + '_C') in df.columns or (var + '_D') in df.columns)
         ho = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
+        var_to_node = hierarchy_data.get('var_to_node', {}) if hierarchy_data else {}
+        granularity_level = int(st.session_state.get("granularity_level", 7))
+        max_granularity_level = granularity_level - 1
         all_hierarchy_vars = ho if ho else sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
         available_spending_vars = [var for var in all_hierarchy_vars if variable_exists(filtered_df, var)]
+        available_spending_vars = filter_vars_by_granularity(
+            available_spending_vars,
+            var_to_node,
+            max_granularity_level
+        )
         if len(available_spending_vars) == 0:
             st.error("No spending variables found in the dataset.")
             overall_progress_bar.empty()
@@ -1774,10 +1830,18 @@ def main():
         # Organize results hierarchically (for summary and table)
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
+        granularity_level = int(st.session_state.get("granularity_level", 7))
+        max_granularity_level = granularity_level - 1
+        hierarchical_results = filter_results_by_granularity(
+            hierarchical_results,
+            var_to_node,
+            max_granularity_level
+        )
         gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data_display) if hierarchical_results else {}
         allocation_display = st.session_state.get('allocation_input')
         n_a = int(st.session_state.get('allocation_n_adults', 2))
         n_c = int(st.session_state.get('allocation_n_children', 0))
+        hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
         
         # Summary block (same as Excel): Total Consumption and Gifts, N Adults/Children, Shared/Exclusive with Dollars|Percent
         total_consumption_gifts = 0
@@ -1868,9 +1932,10 @@ def main():
             if fmt == 'score': return f"{float(x):.2f}" if isinstance(x, (int, float)) else (str(x) if x != "" else "")
             return str(x) if x != "" else ""
         if hierarchical_results:
+            show_allocation_columns = bool(allocation_display) and not hide_allocation_factors
             display_df = build_hierarchical_display(
                 hierarchical_results, var_to_node, hierarchy_data_display,
-                allocation_lookup=allocation_display,
+                allocation_lookup=allocation_display if show_allocation_columns else None,
                 n_adults=n_a,
                 n_children=n_c
             )
@@ -1889,8 +1954,14 @@ def main():
                 display_df['Child Intensity'] = display_df['Child Intensity'].apply(lambda x: _fmt(x, 'score'))
             st.dataframe(display_df, use_container_width=True, height=400, hide_index=True)
         else:
+            results_df_filtered = results_df
+            if var_to_node and 'Spending Code' in results_df.columns:
+                def _keep_var(code):
+                    level = _level_from_node(var_to_node, code)
+                    return level is None or level <= max_granularity_level
+                results_df_filtered = results_df[results_df['Spending Code'].apply(_keep_var)]
             need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
-            fallback_df = results_df[[c for c in need if c in results_df.columns]].copy()
+            fallback_df = results_df_filtered[[c for c in need if c in results_df_filtered.columns]].copy()
             fallback_df = fallback_df.rename(columns={
                 'Spending Description': 'Expenditure Category',
                 'Mean Dollars Per Year': 'Reported $',
@@ -1902,14 +1973,14 @@ def main():
                 f_mask = fallback_df['Quality'].fillna('F').astype(str).str.upper().str.strip() == 'F'
                 fallback_df.loc[f_mask, 'Reported $'] = 0
                 fallback_df.loc[f_mask, 'Allocated $'] = 0
-            if allocation_display:
+            if allocation_display and not hide_allocation_factors:
                 for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
                     fallback_df[c] = ""
                 if 'Quality' in fallback_df.columns:
                     for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
                         fallback_df.loc[f_mask, c] = 0
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
-            fallback_df = fallback_df[[c for c in exp_cols + (['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'] if allocation_display else []) if c in fallback_df.columns]].copy()
+            fallback_df = fallback_df[[c for c in exp_cols + (['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'] if allocation_display and not hide_allocation_factors else []) if c in fallback_df.columns]].copy()
             for col in ['Reported $', 'Allocated $', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']:
                 if col in fallback_df.columns:
                     fallback_df[col] = fallback_df[col].apply(lambda x: _fmt(x, 'cur'))
@@ -2056,6 +2127,13 @@ def main():
                 allocation_export = st.session_state.get('allocation_input')
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
                 hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
+                granularity_level = int(st.session_state.get("granularity_level", 7))
+                max_granularity_level = granularity_level - 1
+                hierarchical_results_export = filter_results_by_granularity(
+                    hierarchical_results_export,
+                    var_to_node_export,
+                    max_granularity_level
+                )
                 gran_alloc = compute_granular_allocation(hierarchical_results_export, var_to_node_export, hierarchy_data_export) if hierarchical_results_export else {}
                 
                 # Total Consumption and Gifts = TC001 + MG001
