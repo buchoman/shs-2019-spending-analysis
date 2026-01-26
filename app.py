@@ -1903,43 +1903,44 @@ def main():
               <div class="metric-item"><span class="metric-label">Number of Children</span><span class="metric-value">{_v3}</span></div>
             </div>''', unsafe_allow_html=True)
         with main_col:
-            # Table: 2 columns only — Labels (with % in label) and Dollars
-            if allocation_display and total_alloc:
-                lbl1 = f"Shared Spending = {pct_shared:.2f}%"
-                lbl2 = f"Exclusive Spending: Adult(s) = {n_a} × {pct_per_adult:.2f}% = {pct_agg_adults:.2f}%"
-                lbl3 = f"Exclusive Spending: Child(ren) = {n_c} × {pct_per_child:.2f}% = {pct_agg_children:.2f}%"
-                d1 = f"${round(total_shared_d, 0):,.0f}"
-                d2 = f"${round(per_adult_d, 0):,.0f}"
-                d3 = f"${round(per_child_d, 0):,.0f}"
-            else:
-                lbl1, lbl2, lbl3 = "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"
-                d1 = d2 = d3 = "—"
-            summary_table_html = f'''
-            <table class="summary-allocation-table">
-              <thead><tr><th>Allocation of Total Consumption and Gifts</th><th>Dollars</th></tr></thead>
-              <tbody>
-                <tr><td>{lbl1}</td><td>{d1}</td></tr>
-                <tr><td>{lbl2}</td><td>{d2}</td></tr>
-                <tr><td>{lbl3}</td><td>{d3}</td></tr>
-              </tbody>
-            </table>'''
-            tab_col, pie_col = st.columns(2)
-            with tab_col:
+            if not hide_allocation_factors:
+                # Table: 2 columns only — Labels (with % in label) and Dollars
                 if allocation_display and total_alloc:
-                    pct_block = f'''<div class="spending-pct-prominent">Shared <span class="pct-val">{pct_shared:.2f}%</span> · Exclusive – Adults: <span class="pct-val">{pct_agg_adults:.2f}%</span> · Exclusive – Children: <span class="pct-val">{pct_agg_children:.2f}%</span></div>'''
-                    st.markdown(pct_block, unsafe_allow_html=True)
-                st.markdown(summary_table_html, unsafe_allow_html=True)
-            with pie_col:
-                if allocation_display and total_alloc and total_alloc > 0:
-                    pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
-                    pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
-                    try:
-                        import plotly.graph_objects as go
-                        fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=16))])
-                        fig.update_layout(margin=dict(t=24, b=20, l=20, r=20), height=280, showlegend=False, font=dict(size=13))
-                        st.plotly_chart(fig, use_container_width=True)
-                    except Exception:
-                        pass
+                    lbl1 = f"Shared Spending = {pct_shared:.2f}%"
+                    lbl2 = f"Exclusive Spending: Adult(s) = {n_a} × {pct_per_adult:.2f}% = {pct_agg_adults:.2f}%"
+                    lbl3 = f"Exclusive Spending: Child(ren) = {n_c} × {pct_per_child:.2f}% = {pct_agg_children:.2f}%"
+                    d1 = f"${round(total_shared_d, 0):,.0f}"
+                    d2 = f"${round(per_adult_d, 0):,.0f}"
+                    d3 = f"${round(per_child_d, 0):,.0f}"
+                else:
+                    lbl1, lbl2, lbl3 = "Shared Spending", "Exclusive Spending per Adult", "Exclusive Spending per Child"
+                    d1 = d2 = d3 = "—"
+                summary_table_html = f'''
+                <table class="summary-allocation-table">
+                  <thead><tr><th>Allocation of Total Consumption and Gifts</th><th>Dollars</th></tr></thead>
+                  <tbody>
+                    <tr><td>{lbl1}</td><td>{d1}</td></tr>
+                    <tr><td>{lbl2}</td><td>{d2}</td></tr>
+                    <tr><td>{lbl3}</td><td>{d3}</td></tr>
+                  </tbody>
+                </table>'''
+                tab_col, pie_col = st.columns(2)
+                with tab_col:
+                    if allocation_display and total_alloc:
+                        pct_block = f'''<div class="spending-pct-prominent">Shared <span class="pct-val">{pct_shared:.2f}%</span> · Exclusive – Adults: <span class="pct-val">{pct_agg_adults:.2f}%</span> · Exclusive – Children: <span class="pct-val">{pct_agg_children:.2f}%</span></div>'''
+                        st.markdown(pct_block, unsafe_allow_html=True)
+                    st.markdown(summary_table_html, unsafe_allow_html=True)
+                with pie_col:
+                    if allocation_display and total_alloc and total_alloc > 0:
+                        pie_labels = ["Shared"] + [f"Adult {i+1}" for i in range(n_a)] + [f"Child {i+1}" for i in range(n_c)]
+                        pie_values = [total_shared_d] + [per_adult_d] * n_a + [per_child_d] * n_c
+                        try:
+                            import plotly.graph_objects as go
+                            fig = go.Figure(data=[go.Pie(labels=pie_labels, values=pie_values, hole=0.35, textinfo="label+percent", textposition="outside", textfont=dict(size=16))])
+                            fig.update_layout(margin=dict(t=24, b=20, l=20, r=20), height=280, showlegend=False, font=dict(size=13))
+                            st.plotly_chart(fig, use_container_width=True)
+                        except Exception:
+                            pass
         
         # Display by expenditure category (same columns as Excel)
         st.subheader("Allocation by Expenditure Category")
@@ -2146,6 +2147,7 @@ def main():
                 
                 # Prepare allocation and hierarchy for middle section and expenditure table
                 allocation_export = st.session_state.get('allocation_input')
+                hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
                 hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
                 granularity_level = int(st.session_state.get("granularity_level", 7))
@@ -2194,10 +2196,11 @@ def main():
                 all_data.append(["Total Consumption and Gifts", round(total_consumption_gifts, 0) if total_consumption_gifts else 0])
                 all_data.append(["Number of Adults", int(n_a)])
                 all_data.append(["Number of Children", int(n_c)])
-                all_data.append(["", "Dollars", "Percent"])  # header for the 3 allocation rows
-                all_data.append(["Shared Spending", round(total_shared_d, 0) if allocation_export else "", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
-                all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export else "", (round(pct_per_adult / 100, 4) if allocation_export and total_alloc else "")])
-                all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export else "", (round(pct_per_child / 100, 4) if allocation_export and total_alloc else "")])
+                if not hide_allocation_factors:
+                    all_data.append(["", "Dollars", "Percent"])  # header for the 3 allocation rows
+                    all_data.append(["Shared Spending", round(total_shared_d, 0) if allocation_export else "", (round(pct_shared / 100, 4) if allocation_export and total_alloc else "")])
+                    all_data.append(["Exclusive Spending per Adult", round(per_adult_d, 0) if allocation_export else "", (round(pct_per_adult / 100, 4) if allocation_export and total_alloc else "")])
+                    all_data.append(["Exclusive Spending per Child", round(per_child_d, 0) if allocation_export else "", (round(pct_per_child / 100, 4) if allocation_export and total_alloc else "")])
                 
                 all_data.append([""])
                 all_data.append([""])
@@ -2205,7 +2208,7 @@ def main():
                 # BOTTOM SECTION: Expenditure Categories (new column titles, no CV, suppress F)
                 all_data.append(["Results"])
                 exp_header = ["Expenditure Category", "Reported $", "Coefficient of Variation", "Quality", "Allocated $"]
-                if allocation_export is not None:
+                if allocation_export is not None and not hide_allocation_factors:
                     exp_header += ["Shared %", "Child Intensity", "Shared $", "Exclusive (Adult) $", "Exclusive (Child) $"]
                 all_data.append(exp_header)
                 exp_header_excel_row = len(all_data)
@@ -2229,7 +2232,7 @@ def main():
                             quality,
                             ga_display
                         ]
-                        if allocation_export is not None:
+                        if allocation_export is not None and not hide_allocation_factors:
                             if is_f:
                                 row.extend([0, 0, 0, 0, 0])
                             else:
@@ -2261,7 +2264,7 @@ def main():
                             qual,
                             0 if is_f else ""
                         ]
-                        if allocation_export is not None:
+                        if allocation_export is not None and not hide_allocation_factors:
                             data_row.extend([0, 0, 0, 0, 0] if is_f else ["", "", "", "", ""])
                         all_data.append(data_row)
                 
@@ -2368,13 +2371,14 @@ def main():
                     ws.cell(row=r, column=2).number_format = fmt_currency0
                     ws.cell(row=r + 1, column=2).number_format = '0'
                     ws.cell(row=r + 2, column=2).number_format = '0'
-                    # r+3: header "Dollars"|"Percent" (text)
-                    ws.cell(row=r + 4, column=2).number_format = fmt_currency0
-                    ws.cell(row=r + 4, column=3).number_format = fmt_pct
-                    ws.cell(row=r + 5, column=2).number_format = fmt_currency0
-                    ws.cell(row=r + 5, column=3).number_format = fmt_pct
-                    ws.cell(row=r + 6, column=2).number_format = fmt_currency0
-                    ws.cell(row=r + 6, column=3).number_format = fmt_pct
+                    if not hide_allocation_factors:
+                        # r+3: header "Dollars"|"Percent" (text)
+                        ws.cell(row=r + 4, column=2).number_format = fmt_currency0
+                        ws.cell(row=r + 4, column=3).number_format = fmt_pct
+                        ws.cell(row=r + 5, column=2).number_format = fmt_currency0
+                        ws.cell(row=r + 5, column=3).number_format = fmt_pct
+                        ws.cell(row=r + 6, column=2).number_format = fmt_currency0
+                        ws.cell(row=r + 6, column=3).number_format = fmt_pct
                     break
             
             # Auto-adjust column widths for columns beyond exp_num_cols (A=100, B=17.1, C=13.5, 4..exp=10.5 already set)
