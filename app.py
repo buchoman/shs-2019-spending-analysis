@@ -1382,13 +1382,12 @@ def main():
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
             count_placeholder = st.empty()
-            button_cols = st.columns([1, 4])
+            button_cols = st.columns([2, 8])
             with button_cols[0]:
                 quintile_cutoffs_btn = st.button(
                     "Show/Hide Quintiles",
                     type="secondary",
                     use_container_width=True,
-                    help="Toggle the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
                     key="quintile_btn_col1"
                 )
         else:
