@@ -1,4 +1,4 @@
-# Survey of Household Spending 2019 - Spending Estimates Application
+# Survey of Household Spending 2019 - Spending Analysis
 
 This application allows users to select demographic attributes and get detailed estimates of average household spending from the Survey of Household Spending 2019, with bootstrap variance estimates.
 
@@ -99,4 +99,3 @@ Spending is organized into the following major categories:
 - The application uses caching to speed up data loading
 - Ensure sufficient memory for large datasets
 - Spending estimates are in dollars per year (annual household spending)
-

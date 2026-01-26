@@ -1,5 +1,5 @@
 """
-Survey of Household Spending 2019 - Spending Estimates Application
+Survey of Household Spending 2019 - Spending Analysis
 This application allows users to select demographic attributes and get
 detailed estimates of average household spending with bootstrap variance estimates.
 """
@@ -1254,7 +1254,7 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
     return pd.DataFrame(display_rows)
 
 def main():
-    st.title("💰 Survey of Household Spending 2019 - Spending Estimates Application")
+    st.title("💰 Survey of Household Spending 2019 - Spending Analysis")
     st.markdown("""
     This application allows you to select demographic attributes and get detailed estimates 
     of average household spending (in dollars per year) with bootstrap variance estimates.
