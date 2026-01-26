@@ -1598,75 +1598,15 @@ def main():
         key="hide_allocation_factors",
         help="Turn on to hide allocation factor columns in the expenditure table."
     )
-    st.markdown(
-        """
-        <style>
-        .granularity-value {
-            margin-top: 0.35rem;
-            font-size: 0.95rem;
-        }
-        .granularity-value span {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #0d6efd;
-        }
-        .granularity-ticks {
-            display: flex;
-            justify-content: space-between;
-            gap: 0.5rem;
-            margin-top: -0.4rem;
-            font-size: 0.75rem;
-            color: #6c757d;
-        }
-        .granularity-tick {
-            flex: 1;
-            text-align: center;
-        }
-        .granularity-tick::before {
-            content: "";
-            display: block;
-            margin: 0 auto 0.2rem;
-            width: 1px;
-            height: 8px;
-            background: #6c757d;
-        }
-        .granularity-tick:first-child {
-            text-align: left;
-        }
-        .granularity-tick:last-child {
-            text-align: right;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
+    st.slider(
+        "Level of Granularity",
+        min_value=3,
+        max_value=7,
+        value=7,
+        step=1,
+        key="granularity_level",
+        help="Select the maximum hierarchy level to include. Level 7 includes the most detailed categories."
     )
-    granularity_col, _ = st.columns([1, 4])
-    with granularity_col:
-        granularity_level = st.slider(
-            "Level of Granularity",
-            min_value=3,
-            max_value=7,
-            value=7,
-            step=1,
-            key="granularity_level",
-            help="Select the maximum hierarchy level to include. Level 7 includes the most detailed categories."
-        )
-        st.markdown(
-            f"<div class='granularity-value'>Selected level: <span>{granularity_level}</span></div>",
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            """
-            <div class="granularity-ticks">
-                <div class="granularity-tick">3</div>
-                <div class="granularity-tick">4</div>
-                <div class="granularity-tick">5</div>
-                <div class="granularity-tick">6</div>
-                <div class="granularity-tick">7</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
     st.markdown("---")
     
