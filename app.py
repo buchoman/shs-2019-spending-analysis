@@ -1628,6 +1628,12 @@ def main():
             calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
     else:
         calculate_income_range = False
+        btn_col, _ = st.columns([1, 4])
+        with btn_col:
+            st.caption(
+                "Hint: Allocation: Household Composition variables (Total Adults and Total Children) "
+                "must be set before undertaking Spending Analysis."
+            )
     
     st.markdown("---")
     
