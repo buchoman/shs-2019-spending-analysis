@@ -1365,16 +1365,22 @@ def main():
             )
             st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
             count_placeholder = st.empty()
-            quintile_cutoffs_btn = st.button(
-                "Find Quintile Cutoffs",
-                use_container_width=True,
-                help="Compute the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
-                key="quintile_btn_col1"
-            )
+            quintile_cols = st.columns([1, 4])
+            with quintile_cols[0]:
+                show_quintile_cutoffs = st.session_state.get("show_quintile_cutoffs", False)
+                quintile_button_label = "Hide Quintile Cutoffs" if show_quintile_cutoffs else "Show Quintile Cutoffs"
+                quintile_cutoffs_btn = st.button(
+                    quintile_button_label,
+                    type="primary",
+                    use_container_width=True,
+                    help="Toggle the 20th, 40th, 60th, 80th percentiles of income (no spending calculation).",
+                    key="quintile_btn_col1"
+                )
         else:
             income_range = None
             quintile_cutoffs_btn = False
             count_placeholder = None
+            st.session_state.show_quintile_cutoffs = False
     
     # MIDDLE COLUMN: Reference Person Demographics
     with col2:
@@ -1531,8 +1537,12 @@ def main():
     # Store filtered count in session state
     st.session_state.filtered_count = filtered_count
     
-    # Quintile cutoffs: run when button (in col1) was clicked
     if quintile_cutoffs_btn:
+        show_quintile_cutoffs = not st.session_state.get("show_quintile_cutoffs", False)
+        st.session_state.show_quintile_cutoffs = show_quintile_cutoffs
+
+    # Quintile cutoffs: run when toggle is on
+    if st.session_state.get("show_quintile_cutoffs", False):
         fq = filter_data(df, st.session_state.filters, income_range=st.session_state.get('income_range'))
         if 'HH_TotInc' not in fq.columns:
             st.error("Household total income (HH_TotInc) not found.")
