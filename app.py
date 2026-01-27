@@ -1576,7 +1576,6 @@ def main():
     # Merge bootstrap weights
     df, bootstrap_cols = get_bootstrap_weights(df, df_bsw)
     
-    st.success(f"Data loaded successfully! {len(df):,} records.")
     # Filters at the top of the page
     st.header("Select Attributes")
     
