@@ -1108,6 +1108,27 @@ def _get_direct_children(var_code, hierarchy_order, var_to_node):
     return children
 
 
+def _get_descendants_inclusive(var_code, hierarchy_order, var_to_node):
+    """Return var_code plus all descendants in hierarchy_order (depth-first)."""
+    ho = hierarchy_order or []
+    if not ho or var_code not in ho:
+        return [var_code]
+    idx = next((i for i, c in enumerate(ho) if c == var_code), -1)
+    if idx < 0:
+        return [var_code]
+    L = int(var_to_node.get(var_code, {}).get('level') or 0)
+    descendants = [var_code]
+    i = idx + 1
+    while i < len(ho):
+        l_raw = var_to_node.get(ho[i], {}).get('level')
+        l_i = int(l_raw) if l_raw is not None else None
+        if l_i is not None and l_i <= L:
+            break
+        descendants.append(ho[i])
+        i += 1
+    return descendants
+
+
 def compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data=None):
     """
     Granular Allocation displays a subset of 'Mean Dollars per Year' for items under
@@ -1170,6 +1191,68 @@ def _has_granular_value(ga):
     return ga is not None and not (isinstance(ga, float) and np.isnan(ga))
 
 
+def compute_weighted_allocation(hierarchical_results, var_to_node, hierarchy_data, allocation_lookup, n_adults, n_children):
+    if not hierarchical_results or not allocation_lookup:
+        return {}, {"shared": 0.0, "excl_adult": 0.0, "excl_child": 0.0}
+    gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
+    results_dict = {r['var_code']: r for r in hierarchical_results}
+    base_allocations = {}
+    for var_code, ga in gran_alloc.items():
+        if not _has_granular_value(ga):
+            continue
+        item = results_dict.get(var_code)
+        if not item:
+            continue
+        q = str(item.get('quality', 'F') or 'F').strip().upper()
+        if q == 'F':
+            continue
+        lookup = allocation_lookup.get(var_code, {})
+        shared, excl_per_child, excl_per_adult = _allocation_split(
+            item['mean'],
+            lookup.get('shared_pct'),
+            lookup.get('child_intensity'),
+            n_adults,
+            n_children
+        )
+        base_allocations[var_code] = {
+            "shared": shared,
+            "excl_adult_total": excl_per_adult * n_adults,
+            "excl_child_total": excl_per_child * n_children
+        }
+    total_shared = sum(v["shared"] for v in base_allocations.values())
+    total_excl_adult = sum(v["excl_adult_total"] for v in base_allocations.values())
+    total_excl_child = sum(v["excl_child_total"] for v in base_allocations.values())
+    weighted_map = {}
+    ho = (hierarchy_data or {}).get('hierarchy_order', [])
+    for item in hierarchical_results:
+        var_code = item['var_code']
+        descendants = _get_descendants_inclusive(var_code, ho, var_to_node)
+        parts = [base_allocations[d] for d in descendants if d in base_allocations]
+        if not parts:
+            continue
+        shared_total = sum(p["shared"] for p in parts)
+        excl_adult_total = sum(p["excl_adult_total"] for p in parts)
+        excl_child_total = sum(p["excl_child_total"] for p in parts)
+        total_alloc = shared_total + excl_adult_total + excl_child_total
+        if total_alloc <= 0:
+            continue
+        shared_pct = shared_total / total_alloc
+        excl_total = excl_adult_total + excl_child_total
+        if n_children and excl_total > 0:
+            child_intensity = (excl_child_total / excl_total) * 10
+        else:
+            child_intensity = 0.0
+        weighted_map[var_code] = {
+            "shared_pct": shared_pct,
+            "child_intensity": child_intensity,
+            "shared": shared_total,
+            "excl_per_adult": (excl_adult_total / n_adults) if n_adults else 0,
+            "excl_per_child": (excl_child_total / n_children) if n_children else 0
+        }
+    totals = {"shared": total_shared, "excl_adult": total_excl_adult, "excl_child": total_excl_child}
+    return weighted_map, totals
+
+
 def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     """Compute Shared Spending, Exclusive Per Child, Exclusive Per Adult so that
     Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = M.
@@ -1204,7 +1287,15 @@ def _force_shared_allocation(allocation_lookup):
     }
 
 
-def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1):
+def build_hierarchical_display(
+    hierarchical_results,
+    var_to_node,
+    hierarchy_data=None,
+    allocation_lookup=None,
+    n_adults=2,
+    n_children=1,
+    weighted_allocation=None
+):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
     granular level where no item has quality 'F' (if any deeper item has F, show at the parent level).
@@ -1243,22 +1334,30 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
                 row['Exclusive (Adult) $'] = ""
                 row['Exclusive (Child) $'] = ""
             else:
-                row['Shared %'] = lookup.get('shared_pct') if show_alloc else np.nan
-                row['Child Intensity'] = lookup.get('child_intensity') if show_alloc else np.nan
-                if show_alloc:
-                    shared, excl_per_child, excl_per_adult = _allocation_split(
-                        item['mean'],
-                        lookup.get('shared_pct'),
-                        lookup.get('child_intensity'),
-                        n_adults, n_children
-                    )
-                    row['Shared $'] = shared
-                    row['Exclusive (Adult) $'] = excl_per_adult
-                    row['Exclusive (Child) $'] = excl_per_child
+                weighted_data = weighted_allocation.get(var_code) if weighted_allocation is not None else None
+                if weighted_allocation is not None:
+                    row['Shared %'] = weighted_data.get('shared_pct', np.nan) if weighted_data else np.nan
+                    row['Child Intensity'] = weighted_data.get('child_intensity', np.nan) if weighted_data else np.nan
+                    row['Shared $'] = weighted_data.get('shared', np.nan) if weighted_data else np.nan
+                    row['Exclusive (Adult) $'] = weighted_data.get('excl_per_adult', np.nan) if weighted_data else np.nan
+                    row['Exclusive (Child) $'] = weighted_data.get('excl_per_child', np.nan) if weighted_data else np.nan
                 else:
-                    row['Shared $'] = np.nan
-                    row['Exclusive (Adult) $'] = np.nan
-                    row['Exclusive (Child) $'] = np.nan
+                    row['Shared %'] = lookup.get('shared_pct') if show_alloc else np.nan
+                    row['Child Intensity'] = lookup.get('child_intensity') if show_alloc else np.nan
+                    if show_alloc:
+                        shared, excl_per_child, excl_per_adult = _allocation_split(
+                            item['mean'],
+                            lookup.get('shared_pct'),
+                            lookup.get('child_intensity'),
+                            n_adults, n_children
+                        )
+                        row['Shared $'] = shared
+                        row['Exclusive (Adult) $'] = excl_per_adult
+                        row['Exclusive (Child) $'] = excl_per_child
+                    else:
+                        row['Shared $'] = np.nan
+                        row['Exclusive (Adult) $'] = np.nan
+                        row['Exclusive (Child) $'] = np.nan
         display_rows.append(row)
     
     return pd.DataFrame(display_rows)
@@ -1944,6 +2043,16 @@ def main():
             f"<div style='text-align:center; font-size:1.4rem; font-weight:700;'>Level {granularity_level}</div>",
             unsafe_allow_html=True,
         )
+    hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+    if hide_allocation_factors:
+        st.session_state["use_lower_level_weights"] = False
+    st.toggle(
+        "Calculate allocation factors using lower-level weights?",
+        value=bool(st.session_state.get("use_lower_level_weights", False)),
+        key="use_lower_level_weights",
+        disabled=hide_allocation_factors,
+        help="Uses Level 7-weighted allocations to recalculate Shared %, Child Intensity, and related dollar columns."
+    )
 
     st.markdown("---")
     
@@ -2193,11 +2302,11 @@ def main():
         
         # Organize results hierarchically (for summary and table)
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
-        hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
+        hierarchical_results_full, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         granularity_level = int(st.session_state.get("granularity_level", 7))
         max_granularity_level = granularity_level - 1
         hierarchical_results = filter_results_by_granularity(
-            hierarchical_results,
+            hierarchical_results_full,
             var_to_node,
             max_granularity_level
         )
@@ -2208,6 +2317,18 @@ def main():
         n_a = int(st.session_state.get('allocation_n_adults', 2))
         n_c = int(st.session_state.get('allocation_n_children', 0))
         hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+        use_lower_level_weights = bool(st.session_state.get("use_lower_level_weights", False)) and not hide_allocation_factors
+        weighted_alloc_map = {}
+        weighted_totals = {"shared": 0.0, "excl_adult": 0.0, "excl_child": 0.0}
+        if use_lower_level_weights and allocation_calc:
+            weighted_alloc_map, weighted_totals = compute_weighted_allocation(
+                hierarchical_results_full,
+                var_to_node,
+                hierarchy_data_display,
+                allocation_calc,
+                n_a,
+                n_c
+            )
         
         # Summary block (same as Excel): Total Consumption and Gifts, N Adults/Children, Shared/Exclusive with Dollars|Percent
         total_consumption_gifts = 0
@@ -2216,16 +2337,21 @@ def main():
                 results_df.loc[results_df['Spending Code'] == 'MG001', 'Mean Dollars Per Year'].sum())
         total_shared_d, total_excl_adult_d, total_excl_child_d = 0.0, 0.0, 0.0
         if allocation_calc and hierarchical_results:
-            for item in hierarchical_results:
-                ga = gran_alloc.get(item['var_code'], np.nan)
-                if not _has_granular_value(ga):
-                    continue
-                lookup = allocation_calc.get(item['var_code'], {})
-                v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
-                shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
-                total_shared_d += shared
-                total_excl_adult_d += n_a * excl_a
-                total_excl_child_d += n_c * excl_c
+            if use_lower_level_weights:
+                total_shared_d = weighted_totals["shared"]
+                total_excl_adult_d = weighted_totals["excl_adult"]
+                total_excl_child_d = weighted_totals["excl_child"]
+            else:
+                for item in hierarchical_results:
+                    ga = gran_alloc.get(item['var_code'], np.nan)
+                    if not _has_granular_value(ga):
+                        continue
+                    lookup = allocation_calc.get(item['var_code'], {})
+                    v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
+                    shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                    total_shared_d += shared
+                    total_excl_adult_d += n_a * excl_a
+                    total_excl_child_d += n_c * excl_c
         total_alloc = total_shared_d + total_excl_adult_d + total_excl_child_d
         pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
         per_adult_d = (total_excl_adult_d / n_a) if n_a else 0
@@ -2346,7 +2472,8 @@ def main():
                 hierarchical_results, var_to_node, hierarchy_data_display,
                 allocation_lookup=allocation_calc if show_allocation_columns else None,
                 n_adults=n_a,
-                n_children=n_c
+                n_children=n_c,
+                weighted_allocation=weighted_alloc_map if use_lower_level_weights else None
             )
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
             alloc_cols = ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']
@@ -2538,12 +2665,13 @@ def main():
                 force_shared_allocation = st.session_state.get("force_shared_allocation", False)
                 allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
                 hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+                use_lower_level_weights = bool(st.session_state.get("use_lower_level_weights", False)) and not hide_allocation_factors
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
-                hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
+                hierarchical_results_export_full, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
                 granularity_level = int(st.session_state.get("granularity_level", 7))
                 max_granularity_level = granularity_level - 1
                 hierarchical_results_export = filter_results_by_granularity(
-                    hierarchical_results_export,
+                    hierarchical_results_export_full,
                     var_to_node_export,
                     max_granularity_level
                 )
@@ -2558,22 +2686,38 @@ def main():
                     )
                 n_a = int(st.session_state.get('allocation_n_adults', 2))
                 n_c = int(st.session_state.get('allocation_n_children', 0))
+                weighted_alloc_map = {}
+                weighted_totals = {"shared": 0.0, "excl_adult": 0.0, "excl_child": 0.0}
+                if use_lower_level_weights and allocation_export_calc:
+                    weighted_alloc_map, weighted_totals = compute_weighted_allocation(
+                        hierarchical_results_export_full,
+                        var_to_node_export,
+                        hierarchy_data_export,
+                        allocation_export_calc,
+                        n_a,
+                        n_c
+                    )
                 
                 # Allocation totals across granular allocation rows (for middle-section percentages and dollars)
                 total_shared_d = 0.0
                 total_excl_adult_d = 0.0
                 total_excl_child_d = 0.0
                 if allocation_export_calc and hierarchical_results_export:
-                    for item in hierarchical_results_export:
-                        ga = gran_alloc.get(item['var_code'], np.nan)
-                        if not _has_granular_value(ga):
-                            continue
-                        lookup = allocation_export_calc.get(item['var_code'], {})
-                        v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
-                        shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
-                        total_shared_d += shared
-                        total_excl_adult_d += n_a * excl_a
-                        total_excl_child_d += n_c * excl_c
+                    if use_lower_level_weights:
+                        total_shared_d = weighted_totals["shared"]
+                        total_excl_adult_d = weighted_totals["excl_adult"]
+                        total_excl_child_d = weighted_totals["excl_child"]
+                    else:
+                        for item in hierarchical_results_export:
+                            ga = gran_alloc.get(item['var_code'], np.nan)
+                            if not _has_granular_value(ga):
+                                continue
+                            lookup = allocation_export_calc.get(item['var_code'], {})
+                            v1, v2 = lookup.get('shared_pct'), lookup.get('child_intensity')
+                            shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                            total_shared_d += shared
+                            total_excl_adult_d += n_a * excl_a
+                            total_excl_child_d += n_c * excl_c
                 total_alloc = total_shared_d + total_excl_adult_d + total_excl_child_d
                 pct_shared = (total_shared_d / total_alloc * 100) if total_alloc else 0
                 # Per-adult and per-child amounts and percentages (not aggregates)
@@ -2626,20 +2770,31 @@ def main():
                             if is_f:
                                 row.extend(["", "", "", "", ""])
                             else:
-                                show_alloc = _has_granular_value(ga)
-                                lookup = allocation_export_calc.get(var_code, {}) if show_alloc else {}
-                                v1 = lookup.get('shared_pct')
-                                v2 = lookup.get('child_intensity')
-                                s = (v1 / 100 if (isinstance(v1, (int, float)) and v1 > 1) else v1) if v1 is not None else None
-                                row.append(round(s, 4) if s is not None else "")  # fraction for Excel 0.00%
-                                row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
-                                if show_alloc:
-                                    shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
-                                    row.append(round(shared, 2))
-                                    row.append(round(excl_a, 2))
-                                    row.append(round(excl_c, 2))
+                                weighted_data = weighted_alloc_map.get(var_code) if use_lower_level_weights else None
+                                if use_lower_level_weights:
+                                    if weighted_data is not None:
+                                        row.append(round(weighted_data.get('shared_pct', 0), 4))
+                                        row.append(round(weighted_data.get('child_intensity', 0), 2))
+                                        row.append(round(weighted_data.get('shared', 0), 2))
+                                        row.append(round(weighted_data.get('excl_per_adult', 0), 2))
+                                        row.append(round(weighted_data.get('excl_per_child', 0), 2))
+                                    else:
+                                        row.extend(["", "", "", "", ""])
                                 else:
-                                    row.extend(["", "", ""])
+                                    show_alloc = _has_granular_value(ga)
+                                    lookup = allocation_export_calc.get(var_code, {}) if show_alloc else {}
+                                    v1 = lookup.get('shared_pct')
+                                    v2 = lookup.get('child_intensity')
+                                    s = (v1 / 100 if (isinstance(v1, (int, float)) and v1 > 1) else v1) if v1 is not None else None
+                                    row.append(round(s, 4) if s is not None else "")  # fraction for Excel 0.00%
+                                    row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
+                                    if show_alloc:
+                                        shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
+                                        row.append(round(shared, 2))
+                                        row.append(round(excl_a, 2))
+                                        row.append(round(excl_c, 2))
+                                    else:
+                                        row.extend(["", "", ""])
                         all_data.append(row)
                 else:
                     need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
