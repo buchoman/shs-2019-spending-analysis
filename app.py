@@ -1274,6 +1274,277 @@ def main():
         unsafe_allow_html=True,
     )
     
+    # Documentation Sidebar
+    with st.sidebar:
+        st.markdown("### 📚 Documentation")
+        doc_tab1, doc_tab2, doc_tab3 = st.tabs(["Quick Start", "Getting Started", "Reference"])
+        
+        with doc_tab1:
+            st.markdown("### Purpose")
+            st.markdown("""
+            The SHS 2019 Spending Analysis app is an internal CPC tool used to estimate household expenditures 
+            and expenditure allocation factors using Statistics Canada's 2019 Survey of Household Spending (SHS) 
+            Public Use Microdata File (PUMF). It is designed to support forensic economic analysis, including 
+            fatality and personal injury claims.
+            """)
+            
+            st.markdown("### Access")
+            st.markdown("""
+            Open the application in a web browser:
+            
+            **https://shs-2019-spending-analysis.streamlit.app/**
+            
+            No installation is required. Microsoft Excel is only needed if you intend to create or modify custom weight files.
+            
+            Some analytical functions are restricted to authorised users and require internal authentication when prompted.
+            """)
+            
+            st.markdown("### Basic Workflow")
+            st.markdown("""
+            **1. Define the Demographic Group**
+            
+            Use the filters to select the household characteristics that best match the reference household of interest 
+            (for example, province, household type, age group, income group).
+            
+            *Tip: Narrower filters increase specificity but reduce sample size, which can affect data reliability.*
+            
+            **2. Run the Analysis**
+            
+            Initiate the calculation to generate:
+            - Mean annual household expenditures by category
+            - Coefficients of variation (CVs) based on bootstrapping
+            
+            *Authorised access is required to run calculations.*
+            
+            **3. Review Data Quality**
+            
+            Check the CVs alongside the means:
+            - Lower CVs indicate more reliable estimates
+            - High CVs suggest small samples or unstable results
+            
+            *If CVs are too high, consider broadening the demographic filters.*
+            
+            **4. Generate Allocation Factors**
+            
+            Use the results to obtain expenditure allocation factors (category shares of total household spending). 
+            These are suitable for use in CPC court reports and loss calculations.
+            """)
+            
+            st.markdown("### Best Practices")
+            st.markdown("""
+            - Always assess CVs before relying on results
+            - Avoid over-filtering the data
+            - Document assumptions clearly when using custom weights
+            - Do not include internal access details in reports or shared documents
+            """)
+        
+        with doc_tab2:
+            st.markdown("### Introduction")
+            st.markdown("""
+            The SHS 2019 Spending Analysis web application is an internal analytical tool developed for Columbia 
+            Pacific Consulting (CPC). It supports forensic economic analysis using data from Statistics Canada's 
+            2019 Survey of Household Spending (SHS) Public Use Microdata File (PUMF).
+            
+            The SHS is a nationally representative survey that collects detailed information on household expenditures, 
+            demographics, and dwelling characteristics. The PUMF provides anonymised microdata and survey weights that 
+            allow analysts to estimate typical household spending patterns for defined demographic groups.
+            
+            This application is intended to support CPC staff in estimating household expenditures and expenditure 
+            allocation factors for use in litigation and advisory work, including fatality and personal injury claims.
+            
+            The application runs entirely in a web browser. No local installation is required. Microsoft Excel is only 
+            needed if users wish to create or modify custom weight files.
+            """)
+            
+            st.markdown("### Access and Authorisation")
+            st.markdown("""
+            The application is available at:
+            
+            **https://shs-2019-spending-analysis.streamlit.app/**
+            
+            Some functions within the application are restricted to authorised users, including:
+            - Running expenditure calculations
+            - Generating bootstrap-based coefficients of variation (CVs)
+            - Uploading or downloading custom weight or allocation files
+            
+            When attempting to use these features, users will be prompted to enter an internal access password. 
+            This password is provided separately to CPC staff and should not be shared or included in external documents.
+            """)
+            
+            st.markdown("### Key Capabilities")
+            
+            st.markdown("#### 1. Demographic Filtering")
+            st.markdown("""
+            The application allows users to filter the 2019 SHS data by key household and demographic characteristics, 
+            including (but not limited to):
+            - Province or region
+            - Household type (e.g. single person, couple with children)
+            - Age group of the reference person
+            - Household income group
+            - Housing tenure
+            
+            These filters define the analytical sample used to calculate expenditure statistics.
+            
+            **Important:** There is an inherent trade-off between demographic specificity and statistical reliability. 
+            Narrow filters reduce sample size, which can increase uncertainty in estimated means. Users should balance 
+            precision with data quality.
+            """)
+            
+            st.markdown("#### 2. Reference Household Mapping")
+            st.markdown("""
+            Filtered demographic groups can be used to approximate a reference household with characteristics similar 
+            to those of a household of interest (for example, a deceased individual's household in a fatality claim).
+            
+            The resulting expenditure profile represents the average spending behaviour of comparable households in the 
+            SHS population and may be used as a benchmark in forensic analysis.
+            """)
+            
+            st.markdown("#### 3. Mean Expenditures and Data Quality (CVs)")
+            st.markdown("""
+            For the selected demographic group, the application calculates:
+            - Mean annual household expenditures by category
+            - Coefficients of variation (CVs) for each estimate
+            
+            CVs are derived using a bootstrap methodology consistent with Statistics Canada practice. They provide a 
+            direct measure of statistical reliability:
+            - Lower CVs indicate more stable estimates
+            - Higher CVs indicate greater uncertainty, often due to small sample sizes
+            
+            Analysts should review CVs carefully and avoid relying on estimates with unacceptably high variability 
+            in formal reporting.
+            """)
+            
+            st.markdown("#### 4. Expenditure Categories and Hierarchy")
+            st.markdown("""
+            Expenditures are organised according to the SHS expenditure hierarchy.
+            
+            At present, the application's default weighting structure operates at Level 3 of the hierarchy. As a result:
+            - Total expenditure allocations are identical whether calculated at Level 3 or aggregated to higher levels
+            - Finer reallocations across higher-level groupings require custom weights
+            
+            This is a temporary limitation and may be expanded in future versions.
+            """)
+            
+            st.markdown("#### 5. Custom Weight Uploads")
+            st.markdown("""
+            The application supports uploading custom weight files to enable more granular or tailored analyses. 
+            This feature is intended for advanced use cases.
+            
+            Custom weights may be used to:
+            - Redistribute expenditures across subcategories
+            - Support alternative allocation structures for court reporting
+            - Apply bespoke analytical assumptions while preserving total expenditure consistency
+            
+            Custom weight files are typically prepared in Excel and must follow the required internal format. 
+            Uploading or applying custom weights is a password-protected action.
+            """)
+            
+            st.markdown("#### 6. Expenditure Allocation Factors")
+            st.markdown("""
+            The application can generate expenditure allocation factors, expressed as percentages of total household 
+            spending by category.
+            
+            These allocation factors are commonly used in CPC court reports to:
+            - Allocate total household expenditures across categories
+            - Support loss calculations and household service valuations
+            - Provide transparent, data-driven assumptions
+            
+            Allocation factors should always be interpreted alongside their associated CVs to ensure sufficient data quality.
+            """)
+            
+            st.markdown("### Best Practice Notes")
+            st.markdown("""
+            - Always review sample size and CVs before relying on results
+            - Broaden demographic filters if estimates appear unstable
+            - Use custom weights cautiously and document assumptions clearly
+            - Do not include internal access credentials in reports or shared files
+            """)
+            
+            st.markdown("### Conclusion")
+            st.markdown("""
+            The SHS 2019 Spending Analysis app provides CPC staff with a robust, defensible framework for estimating 
+            household expenditures based on nationally representative survey data. By combining demographic filtering, 
+            weighted means, and bootstrap-based measures of reliability, the application supports high-quality forensic 
+            economic analysis suitable for litigation and advisory work.
+            
+            For questions about methodology, weighting structures, or appropriate use in reports, consult internal CPC 
+            guidance or a senior analyst.
+            """)
+        
+        with doc_tab3:
+            st.markdown("### Methodology")
+            st.markdown("""
+            **Bootstrap Variance Estimation**
+            
+            The bootstrap variance is calculated using the standard Statistics Canada methodology:
+            1. Calculate the estimate using the main household weight (WEIGHTD)
+            2. Calculate estimates using each of the 500 bootstrap weights (BSW1 to BSW500)
+            3. Calculate variance as: `Variance = (1/(B-1)) * sum((estimate_b - mean(estimate_b))^2)` where b ranges 
+               over all bootstrap replicates
+            
+            This provides proper variance estimates that account for the complex survey design.
+            """)
+            
+            st.markdown("### Data Quality Flags")
+            st.markdown("""
+            Each expenditure estimate includes a data quality flag based on the coefficient of variation (CV):
+            
+            - **A = Publish** (C.V. < 16.6%): Reliable estimate suitable for publication
+            - **E = Use with Caution** (16.6% ≤ CV < 35%): Estimate has moderate uncertainty
+            - **F = Suppress** (CV ≥ 35%): Estimate has high uncertainty; numeric values are suppressed (shown as blank)
+            
+            For F-quality items, the row is displayed with the Quality flag and CV shown, but all numeric expenditure 
+            values are blank to indicate they should not be used in analysis.
+            """)
+            
+            st.markdown("### Allocation Factors")
+            st.markdown("""
+            Expenditure allocation factors represent the percentage of total household spending allocated to each 
+            expenditure category. These factors are calculated based on:
+            - Mean expenditures for the selected demographic group
+            - Total household consumption and gifts (TC001 + MG001)
+            - Custom allocation inputs (Shared % and Child Intensity) when provided
+            
+            Allocation factors are used in forensic economic analysis to:
+            - Distribute total household spending across categories
+            - Support loss calculations
+            - Provide defensible assumptions in court reports
+            """)
+            
+            st.markdown("### Custom Weights (Advanced)")
+            st.markdown("""
+            Custom weight files may be uploaded to support more granular or tailored analyses.
+            
+            **Default weights operate at Level 3 of the expenditure hierarchy.**
+            
+            Uploading or applying custom weights requires authorised access.
+            
+            Custom weights allow analysts to:
+            - Redistribute expenditures across subcategories beyond Level 3
+            - Apply alternative allocation structures
+            - Incorporate bespoke analytical assumptions
+            
+            Custom weight files must follow the required internal format and are typically prepared in Excel.
+            """)
+            
+            st.markdown("### Current Limitations")
+            st.markdown("""
+            At present, default weights are available only at Level 3. As a result, total expenditure allocations 
+            are the same whether calculated at Level 3 or aggregated to higher levels.
+            
+            Finer reallocations across higher-level groupings require custom weights.
+            """)
+            
+            st.markdown("### Technical Notes")
+            st.markdown("""
+            - The application uses all 500 bootstrap weights (BSW1 to BSW500) for variance estimation
+            - Calculations may take a few minutes when processing all spending categories with bootstrap variance
+            - The application uses caching to speed up data loading
+            - Ensure sufficient memory for large datasets
+            - Spending estimates are in dollars per year (annual household spending)
+            - All estimates are weighted using the main household weight (WEIGHTD)
+            """)
+    
     # Load data and hierarchy
     with st.spinner("Loading data..."):
         df, meta = load_data()
