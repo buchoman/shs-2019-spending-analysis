@@ -10,6 +10,7 @@ import numpy as np
 import pyreadstat
 from pathlib import Path
 import os
+import base64
 import json
 import warnings
 warnings.filterwarnings('ignore')
@@ -1267,10 +1268,19 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
 def main():
     banner_path = Path("assets/shs-banner.png")
     banner_url = os.getenv("SHS_BANNER_URL")
+    banner_style = 'style="width:30%; height:auto;"'
     if banner_url:
-        st.image(banner_url, width="stretch")
+        st.markdown(
+            f'<img src="{banner_url}" {banner_style} />',
+            unsafe_allow_html=True
+        )
     elif banner_path.exists():
-        st.image(str(banner_path), width="stretch")
+        encoded_banner = base64.b64encode(banner_path.read_bytes()).decode("utf-8")
+        banner_extension = banner_path.suffix.lstrip(".") or "png"
+        st.markdown(
+            f'<img src="data:image/{banner_extension};base64,{encoded_banner}" {banner_style} />',
+            unsafe_allow_html=True
+        )
     else:
         st.title("Survey of Household Spending 2019 - Spending Analysis")
     st.markdown(
