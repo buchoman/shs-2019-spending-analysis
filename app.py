@@ -1220,18 +1220,18 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
         
         row = {
             'Expenditure Category': f"{indent}{description}",
-            'Reported $': 0 if is_f else item['mean'],
+            'Reported $': "" if is_f else item['mean'],
             'Coefficient of Variation': item.get('cv'),
             'Quality': item.get('quality', 'F'),
-            'Allocated $': 0 if is_f else ga
+            'Allocated $': "" if is_f else ga
         }
         if allocation_lookup is not None:
             if is_f:
-                row['Shared %'] = 0
-                row['Child Intensity'] = 0
-                row['Shared $'] = 0
-                row['Exclusive (Adult) $'] = 0
-                row['Exclusive (Child) $'] = 0
+                row['Shared %'] = ""
+                row['Child Intensity'] = ""
+                row['Shared $'] = ""
+                row['Exclusive (Adult) $'] = ""
+                row['Exclusive (Child) $'] = ""
             else:
                 row['Shared %'] = lookup.get('shared_pct') if show_alloc else np.nan
                 row['Child Intensity'] = lookup.get('child_intensity') if show_alloc else np.nan
@@ -2043,14 +2043,14 @@ def main():
             fallback_df['Allocated $'] = ""
             if 'Quality' in fallback_df.columns:
                 f_mask = fallback_df['Quality'].fillna('F').astype(str).str.upper().str.strip() == 'F'
-                fallback_df.loc[f_mask, 'Reported $'] = 0
-                fallback_df.loc[f_mask, 'Allocated $'] = 0
+                fallback_df.loc[f_mask, 'Reported $'] = ""
+                fallback_df.loc[f_mask, 'Allocated $'] = ""
             if allocation_display and not hide_allocation_factors:
                 for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
                     fallback_df[c] = ""
                 if 'Quality' in fallback_df.columns:
                     for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
-                        fallback_df.loc[f_mask, c] = 0
+                        fallback_df.loc[f_mask, c] = ""
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
             fallback_df = fallback_df[[c for c in exp_cols + (['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'] if allocation_display and not hide_allocation_factors else []) if c in fallback_df.columns]].copy()
             for col in ['Reported $', 'Allocated $', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']:
@@ -2276,17 +2276,17 @@ def main():
                         var_code = item['var_code']
                         description = item['description']
                         ga = gran_alloc.get(var_code, np.nan)
-                        ga_display = 0 if is_f else ("" if (ga is None or (isinstance(ga, float) and np.isnan(ga))) else round(ga, 2))
+                        ga_display = "" if is_f else ("" if (ga is None or (isinstance(ga, float) and np.isnan(ga))) else round(ga, 2))
                         row = [
                             f"{indent}{description}",
-                            0 if is_f else round(item['mean'], 2),
+                            "" if is_f else round(item['mean'], 2),
                             round(item.get('cv'), 2) if item.get('cv') is not None and not pd.isna(item.get('cv')) else "",
                             quality,
                             ga_display
                         ]
                         if allocation_export_calc is not None and not hide_allocation_factors:
                             if is_f:
-                                row.extend([0, 0, 0, 0, 0])
+                                row.extend(["", "", "", "", ""])
                             else:
                                 show_alloc = _has_granular_value(ga)
                                 lookup = allocation_export_calc.get(var_code, {}) if show_alloc else {}
@@ -2311,13 +2311,13 @@ def main():
                         is_f = (qual == 'F')
                         data_row = [
                             r.get('Spending Description', ''),
-                            0 if is_f else (round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else ""),
+                            "" if is_f else (round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else ""),
                             round(r.get('Coefficient of Variation'), 2) if r.get('Coefficient of Variation') is not None and not pd.isna(r.get('Coefficient of Variation')) else "",
                             qual,
-                            0 if is_f else ""
+                            "" if is_f else ""
                         ]
                         if allocation_export_calc is not None and not hide_allocation_factors:
-                            data_row.extend([0, 0, 0, 0, 0] if is_f else ["", "", "", "", ""])
+                            data_row.extend(["", "", "", "", ""] if is_f else ["", "", "", "", ""])
                         all_data.append(data_row)
                 
                 # Convert to DataFrame and write
