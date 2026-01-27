@@ -50,6 +50,10 @@ streamlit run app.py
    - Click "Calculate Estimates"
    - Download results as Excel
 
+### Header Banner
+
+To display a custom header banner without committing a binary file, set the `SHS_BANNER_URL` environment variable to a hosted image URL (for example, a GitHub raw URL or a CDN link). The app will use the banner URL when set and fall back to the text title if no URL is provided.
+
 ## Data Requirements
 
 The application requires the Survey of Household Spending 2019 datasets in SAS format (.sas7bdat). The datasets should include:
