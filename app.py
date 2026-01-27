@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import pyreadstat
 from pathlib import Path
+import os
 import json
 import warnings
 warnings.filterwarnings('ignore')
@@ -1363,7 +1364,14 @@ def build_hierarchical_display(
     return pd.DataFrame(display_rows)
 
 def main():
-    st.title("💰 Survey of Household Spending 2019 - Spending Analysis")
+    banner_path = Path("assets/shs-banner.png")
+    banner_url = os.getenv("SHS_BANNER_URL")
+    if banner_url:
+        st.image(banner_url, width="stretch")
+    elif banner_path.exists():
+        st.image(str(banner_path), width="stretch")
+    else:
+        st.title("Survey of Household Spending 2019 - Spending Analysis")
     st.markdown(
         """
         <style>
