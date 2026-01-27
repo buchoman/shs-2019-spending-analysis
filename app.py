@@ -680,21 +680,31 @@ def parse_allocation_input_excel(uploaded_file):
             if 'intensity' in c and 'child' in c:
                 child_col = df.columns[i]
                 break
+    # Vectorized processing: filter valid rows first
+    code_series = df[code_col].astype(str).str.strip()
+    valid_mask = (code_series.notna()) & (code_series != '') & (code_series != 'nan') & (code_series != 'NAN')
+    valid_df = df[valid_mask].copy()
+    
+    if valid_df.empty:
+        return {}, None
+    
+    # Process codes vectorized
+    codes = valid_df[code_col].astype(str).str.strip()
+    # Normalize codes: uppercase prefix if it looks like a var code
+    codes = codes.apply(lambda x: x[:2].upper() + x[2:] if len(x) >= 2 and x[:2].isalpha() else x)
+    
+    # Extract values vectorized
+    shared_values = valid_df[shared_col] if shared_col is not None else pd.Series([None] * len(valid_df))
+    child_values = valid_df[child_col] if child_col is not None else pd.Series([None] * len(valid_df))
+    
+    # Build output dictionary
     out = {}
-    for _, row in df.iterrows():
-        v = row.get(code_col)
-        if v is None or (isinstance(v, float) and np.isnan(v)):
-            continue
-        var_code = str(v).strip() if v is not None else None
-        if not var_code or var_code == 'NAN':
-            continue
-        # Normalize to match our codes (e.g. FD102): uppercase prefix if it looks like a var code
-        if len(var_code) >= 2 and var_code[:2].isalpha():
-            var_code = var_code[:2].upper() + var_code[2:]
-        out[var_code] = {
-            'shared_pct': _to_float(row.get(shared_col)) if shared_col is not None else None,
-            'child_intensity': _to_float(row.get(child_col)) if child_col is not None else None
-        }
+    for idx, var_code in codes.items():
+        if var_code and var_code != 'NAN':
+            out[var_code] = {
+                'shared_pct': _to_float(shared_values.loc[idx]) if shared_col is not None else None,
+                'child_intensity': _to_float(child_values.loc[idx]) if child_col is not None else None
+            }
     return out, None
 
 
@@ -970,19 +980,22 @@ def organize_hierarchical_results(results_df, hierarchy_data):
     level_vars = hierarchy_data.get('level_vars', {})
     hierarchy_order = hierarchy_data.get('hierarchy_order', [])
     
-    # Create a mapping of var_code to results
+    # Create a mapping of var_code to results (vectorized using to_dict for better performance)
     results_dict = {}
-    for _, row in results_df.iterrows():
-        var_code = row['Spending Code']
-        results_dict[var_code] = {
-            'var_code': var_code,
-            'mean': row['Mean Dollars Per Year'],
-            'variance': row['Variance'],
-            'std_error': row['Standard Error'],
-            'cv': row['Coefficient of Variation'],
-            'n': row.get('Sample Size (n)', np.nan),
-            'quality': row.get('Data Quality Category', 'F')
-        }
+    if not results_df.empty:
+        # Convert to dict using records orientation for faster access
+        records = results_df.to_dict('records')
+        for record in records:
+            var_code = record['Spending Code']
+            results_dict[var_code] = {
+                'var_code': var_code,
+                'mean': record['Mean Dollars Per Year'],
+                'variance': record['Variance'],
+                'std_error': record['Standard Error'],
+                'cv': record['Coefficient of Variation'],
+                'n': record.get('Sample Size (n)', np.nan),
+                'quality': record.get('Data Quality Category', 'F')
+            }
     
     hierarchical_results = []
     used = set()
@@ -1058,22 +1071,19 @@ def _level_from_node(var_to_node, var_code):
 def filter_results_by_granularity(hierarchical_results, var_to_node, max_level):
     if max_level is None:
         return hierarchical_results
-    filtered = []
-    for item in hierarchical_results:
-        level = _level_from_node(var_to_node, item['var_code'])
-        if level is None or level <= max_level:
-            filtered.append(item)
+    # Pre-compute levels for all items to avoid repeated lookups
+    levels = [_level_from_node(var_to_node, item['var_code']) for item in hierarchical_results]
+    # Filter using list comprehension (faster than appending in loop)
+    filtered = [item for item, level in zip(hierarchical_results, levels) if level is None or level <= max_level]
     return filtered
 
 
 def filter_vars_by_granularity(var_codes, var_to_node, max_level):
     if max_level is None:
         return list(var_codes)
-    filtered = []
-    for var_code in var_codes:
-        level = _level_from_node(var_to_node, var_code)
-        if level is None or level <= max_level:
-            filtered.append(var_code)
+    # Pre-compute levels for all codes and filter using list comprehension
+    levels = [_level_from_node(var_to_node, var_code) for var_code in var_codes]
+    filtered = [var_code for var_code, level in zip(var_codes, levels) if level is None or level <= max_level]
     return filtered
 
 
@@ -2006,6 +2016,17 @@ def main():
         for cat, vars_list in SPENDING_CATEGORIES.items():
             for var in vars_list:
                 var_to_category[var] = cat
+        
+        # Pre-compute variable column mappings to avoid repeated column checks
+        var_column_map = {}
+        for var in available_spending_vars:
+            var_c = var + '_C'
+            var_d = var + '_D'
+            has_c = var_c in filtered_df.columns
+            has_d = var_d in filtered_df.columns
+            has_base = var in filtered_df.columns
+            var_column_map[var] = {'has_c': has_c, 'has_d': has_d, 'has_base': has_base}
+        
         w_main = np.asarray(filtered_df['WeightD'], dtype=np.float64)
         W_bootstrap = filtered_df[bootstrap_cols].to_numpy(dtype=np.float64)
         progress_bar = st.progress(0)
@@ -2013,7 +2034,18 @@ def main():
         total_vars = len(available_spending_vars)
         for idx, var in enumerate(available_spending_vars):
             status_text.text(f"Processing {var} ({idx + 1}/{total_vars})...")
-            var_vals = get_variable_value(filtered_df, var)
+            # Use pre-computed column mapping for faster access
+            col_info = var_column_map[var]
+            if col_info['has_c'] and col_info['has_d']:
+                var_vals = filtered_df[var + '_C'].fillna(0) + filtered_df[var + '_D'].fillna(0)
+            elif col_info['has_c']:
+                var_vals = filtered_df[var + '_C']
+            elif col_info['has_d']:
+                var_vals = filtered_df[var + '_D']
+            elif col_info['has_base']:
+                var_vals = filtered_df[var]
+            else:
+                var_vals = pd.Series([np.nan] * len(filtered_df), index=filtered_df.index)
             v = np.asarray(var_vals, dtype=np.float64)
             mask_main = np.isfinite(v) & (w_main > 0)
             n = int(np.sum(mask_main))
@@ -2274,6 +2306,40 @@ def main():
             if fmt == 'dec2': return f"{float(x):.2f}" if isinstance(x, (int, float)) else (str(x) if x != "" else "")
             if fmt == 'score': return f"{float(x):.2f}" if isinstance(x, (int, float)) else (str(x) if x != "" else "")
             return str(x) if x != "" else ""
+        
+        def _format_column_vectorized(series, fmt_type):
+            """Vectorized formatting function for pandas Series"""
+            if series.empty:
+                return series
+            # Handle NaN and empty strings
+            mask_valid = series.notna() & (series != "")
+            if not mask_valid.any():
+                return series.astype(str)
+            
+            result = series.copy().astype(str)
+            
+            if fmt_type == 'cur':
+                numeric_mask = pd.to_numeric(series, errors='coerce').notna() & mask_valid
+                if numeric_mask.any():
+                    numeric_vals = pd.to_numeric(series[numeric_mask], errors='coerce')
+                    result.loc[numeric_mask] = numeric_vals.apply(lambda x: f"${x:,.2f}")
+            elif fmt_type == 'pct':
+                numeric_mask = pd.to_numeric(series, errors='coerce').notna() & mask_valid
+                if numeric_mask.any():
+                    numeric_vals = pd.to_numeric(series[numeric_mask], errors='coerce')
+                    # Check if values are already percentages (>1) or decimals (<=1)
+                    pct_mask = numeric_vals <= 1
+                    result.loc[numeric_mask & pct_mask] = numeric_vals[pct_mask].apply(lambda x: f"{x*100:.2f}%")
+                    result.loc[numeric_mask & ~pct_mask] = numeric_vals[~pct_mask].apply(lambda x: f"{x:.2f}%")
+            elif fmt_type in ['dec2', 'score']:
+                numeric_mask = pd.to_numeric(series, errors='coerce').notna() & mask_valid
+                if numeric_mask.any():
+                    numeric_vals = pd.to_numeric(series[numeric_mask], errors='coerce')
+                    result.loc[numeric_mask] = numeric_vals.apply(lambda x: f"{x:.2f}")
+            
+            # Preserve empty strings and NaN as empty strings
+            result.loc[~mask_valid] = ""
+            return result
         if hierarchical_results:
             show_allocation_columns = bool(allocation_calc) and not hide_allocation_factors
             display_df = build_hierarchical_display(
@@ -2288,21 +2354,22 @@ def main():
             display_df = display_df[[c for c in display_cols if c in display_df.columns]].copy()
             for col in ['Reported $', 'Allocated $', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']:
                 if col in display_df.columns:
-                    display_df[col] = display_df[col].apply(lambda x: _fmt(x, 'cur'))
+                    display_df[col] = _format_column_vectorized(display_df[col], 'cur')
             if 'Coefficient of Variation' in display_df.columns:
-                display_df['Coefficient of Variation'] = display_df['Coefficient of Variation'].apply(lambda x: _fmt(x, 'dec2'))
+                display_df['Coefficient of Variation'] = _format_column_vectorized(display_df['Coefficient of Variation'], 'dec2')
             if 'Shared %' in display_df.columns:
-                display_df['Shared %'] = display_df['Shared %'].apply(lambda x: _fmt(x, 'pct'))
+                display_df['Shared %'] = _format_column_vectorized(display_df['Shared %'], 'pct')
             if 'Child Intensity' in display_df.columns:
-                display_df['Child Intensity'] = display_df['Child Intensity'].apply(lambda x: _fmt(x, 'score'))
+                display_df['Child Intensity'] = _format_column_vectorized(display_df['Child Intensity'], 'score')
             st.dataframe(display_df, use_container_width=True, height=400, hide_index=True)
         else:
             results_df_filtered = results_df
             if var_to_node and 'Spending Code' in results_df.columns:
-                def _keep_var(code):
-                    level = _level_from_node(var_to_node, code)
-                    return level is None or level <= max_granularity_level
-                results_df_filtered = results_df[results_df['Spending Code'].apply(_keep_var)]
+                # Vectorized filtering: pre-compute levels for all codes
+                codes = results_df['Spending Code'].values
+                levels = [_level_from_node(var_to_node, code) for code in codes]
+                keep_mask = pd.Series([(level is None or level <= max_granularity_level) for level in levels], index=results_df.index)
+                results_df_filtered = results_df[keep_mask]
             need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
             fallback_df = results_df_filtered[[c for c in need if c in results_df_filtered.columns]].copy()
             fallback_df = fallback_df.rename(columns={
@@ -2326,13 +2393,13 @@ def main():
             fallback_df = fallback_df[[c for c in exp_cols + (['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'] if allocation_display and not hide_allocation_factors else []) if c in fallback_df.columns]].copy()
             for col in ['Reported $', 'Allocated $', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']:
                 if col in fallback_df.columns:
-                    fallback_df[col] = fallback_df[col].apply(lambda x: _fmt(x, 'cur'))
+                    fallback_df[col] = _format_column_vectorized(fallback_df[col], 'cur')
             if 'Coefficient of Variation' in fallback_df.columns:
-                fallback_df['Coefficient of Variation'] = fallback_df['Coefficient of Variation'].apply(lambda x: _fmt(x, 'dec2'))
+                fallback_df['Coefficient of Variation'] = _format_column_vectorized(fallback_df['Coefficient of Variation'], 'dec2')
             if 'Shared %' in fallback_df.columns:
-                fallback_df['Shared %'] = fallback_df['Shared %'].apply(lambda x: _fmt(x, 'pct'))
+                fallback_df['Shared %'] = _format_column_vectorized(fallback_df['Shared %'], 'pct')
             if 'Child Intensity' in fallback_df.columns:
-                fallback_df['Child Intensity'] = fallback_df['Child Intensity'].apply(lambda x: _fmt(x, 'score'))
+                fallback_df['Child Intensity'] = _format_column_vectorized(fallback_df['Child Intensity'], 'score')
             st.dataframe(fallback_df, use_container_width=True, height=400, hide_index=True)
         with st.expander("Quality and Child Intensity legends"):
             st.markdown(_quality_help + "  \n" + _child_help)
@@ -2577,18 +2644,31 @@ def main():
                 else:
                     need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
                     results_export = results_df[[c for c in need if c in results_df.columns]].copy()
-                    for _, r in results_export.iterrows():
-                        qual = str(r.get('Data Quality Category', 'F') or 'F').strip().upper()
-                        is_f = (qual == 'F')
+                    # Vectorized processing: compute quality flags and F masks first
+                    if 'Data Quality Category' in results_export.columns:
+                        quals = results_export['Data Quality Category'].fillna('F').astype(str).str.strip().str.upper()
+                        is_f_mask = (quals == 'F')
+                    else:
+                        quals = pd.Series(['F'] * len(results_export))
+                        is_f_mask = pd.Series([True] * len(results_export))
+                    
+                    # Build rows vectorized
+                    for idx in results_export.index:
+                        qual = quals.loc[idx]
+                        is_f = is_f_mask.loc[idx]
+                        mean_val = results_export.loc[idx, 'Mean Dollars Per Year'] if 'Mean Dollars Per Year' in results_export.columns else None
+                        cv_val = results_export.loc[idx, 'Coefficient of Variation'] if 'Coefficient of Variation' in results_export.columns else None
+                        desc = results_export.loc[idx, 'Spending Description'] if 'Spending Description' in results_export.columns else ''
+                        
                         data_row = [
-                            r.get('Spending Description', ''),
-                            "" if is_f else (round(r['Mean Dollars Per Year'], 2) if 'Mean Dollars Per Year' in r else ""),
-                            round(r.get('Coefficient of Variation'), 2) if r.get('Coefficient of Variation') is not None and not pd.isna(r.get('Coefficient of Variation')) else "",
+                            desc,
+                            "" if is_f else (round(mean_val, 2) if mean_val is not None and not pd.isna(mean_val) else ""),
+                            round(cv_val, 2) if cv_val is not None and not pd.isna(cv_val) else "",
                             qual,
                             "" if is_f else ""
                         ]
                         if allocation_export_calc is not None and not hide_allocation_factors:
-                            data_row.extend(["", "", "", "", ""] if is_f else ["", "", "", "", ""])
+                            data_row.extend(["", "", "", "", ""])
                         all_data.append(data_row)
                 
                 # Convert to DataFrame and write
