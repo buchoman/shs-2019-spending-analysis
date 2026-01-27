@@ -1282,7 +1282,7 @@ def main():
         with doc_tab1:
             st.markdown("### Purpose")
             st.markdown("""
-            The SHS 2019 Spending Analysis app is an internal CPC tool used to estimate household expenditures 
+            The SHS 2019 Spending Analysis app is a tool for forensic economists used to estimate household expenditures 
             and expenditure allocation factors using Statistics Canada's 2019 Survey of Household Spending (SHS) 
             Public Use Microdata File (PUMF). It is designed to support forensic economic analysis, including 
             fatality and personal injury claims.
@@ -1327,7 +1327,7 @@ def main():
             **4. Generate Allocation Factors**
             
             Use the results to obtain expenditure allocation factors (category shares of total household spending). 
-            These are suitable for use in CPC court reports and loss calculations.
+            These are suitable for use in court reports and loss calculations.
             """)
             
             st.markdown("### Best Practices")
@@ -1341,15 +1341,15 @@ def main():
         with doc_tab2:
             st.markdown("### Introduction")
             st.markdown("""
-            The SHS 2019 Spending Analysis web application is an internal analytical tool developed for Columbia 
-            Pacific Consulting (CPC). It supports forensic economic analysis using data from Statistics Canada's 
-            2019 Survey of Household Spending (SHS) Public Use Microdata File (PUMF).
+            The SHS 2019 Spending Analysis web application is an analytical tool for forensic economists. It supports 
+            forensic economic analysis using data from Statistics Canada's 2019 Survey of Household Spending (SHS) 
+            Public Use Microdata File (PUMF).
             
             The SHS is a nationally representative survey that collects detailed information on household expenditures, 
             demographics, and dwelling characteristics. The PUMF provides anonymised microdata and survey weights that 
             allow analysts to estimate typical household spending patterns for defined demographic groups.
             
-            This application is intended to support CPC staff in estimating household expenditures and expenditure 
+            This application is intended to support forensic economists in estimating household expenditures and expenditure 
             allocation factors for use in litigation and advisory work, including fatality and personal injury claims.
             
             The application runs entirely in a web browser. No local installation is required. Microsoft Excel is only 
@@ -1368,7 +1368,7 @@ def main():
             - Uploading or downloading custom weight or allocation files
             
             When attempting to use these features, users will be prompted to enter an internal access password. 
-            This password is provided separately to CPC staff and should not be shared or included in external documents.
+            This password is provided separately to authorised users and should not be shared or included in external documents.
             """)
             
             st.markdown("### Key Capabilities")
@@ -1444,7 +1444,7 @@ def main():
             The application can generate expenditure allocation factors, expressed as percentages of total household 
             spending by category.
             
-            These allocation factors are commonly used in CPC court reports to:
+            These allocation factors are commonly used in court reports to:
             - Allocate total household expenditures across categories
             - Support loss calculations and household service valuations
             - Provide transparent, data-driven assumptions
@@ -1462,12 +1462,12 @@ def main():
             
             st.markdown("### Conclusion")
             st.markdown("""
-            The SHS 2019 Spending Analysis app provides CPC staff with a robust, defensible framework for estimating 
+            The SHS 2019 Spending Analysis app provides forensic economists with a robust, defensible framework for estimating 
             household expenditures based on nationally representative survey data. By combining demographic filtering, 
             weighted means, and bootstrap-based measures of reliability, the application supports high-quality forensic 
             economic analysis suitable for litigation and advisory work.
             
-            For questions about methodology, weighting structures, or appropriate use in reports, consult internal CPC 
+            For questions about methodology, weighting structures, or appropriate use in reports, consult appropriate 
             guidance or a senior analyst.
             """)
         
@@ -1478,7 +1478,7 @@ def main():
             
             The bootstrap variance is calculated using the standard Statistics Canada methodology:
             1. Calculate the estimate using the main household weight (WEIGHTD)
-            2. Calculate estimates using each of the 500 bootstrap weights (BSW1 to BSW500)
+            2. Calculate estimates using each of the 1000 bootstrap weights (BSW1 to BSW1000)
             3. Calculate variance as: `Variance = (1/(B-1)) * sum((estimate_b - mean(estimate_b))^2)` where b ranges 
                over all bootstrap replicates
             
@@ -1537,7 +1537,7 @@ def main():
             
             st.markdown("### Technical Notes")
             st.markdown("""
-            - The application uses all 500 bootstrap weights (BSW1 to BSW500) for variance estimation
+            - The application uses all 1000 bootstrap weights (BSW1 to BSW1000) for variance estimation
             - Calculations may take a few minutes when processing all spending categories with bootstrap variance
             - The application uses caching to speed up data loading
             - Ensure sufficient memory for large datasets
