@@ -1592,7 +1592,7 @@ def main():
     
     # LEFT COLUMN: Geography, Household Characteristics
     with col1:
-        st.subheader("Geography")
+        st.markdown("**Geography**")
         provinces = get_unique_values(df, 'Prov')
         if provinces:
             selected_provinces = st.multiselect(
@@ -1604,7 +1604,7 @@ def main():
             if len(selected_provinces) > 0:
                 filters['Prov'] = selected_provinces
         
-        st.subheader("Household Characteristics")
+        st.markdown("**Household Characteristics**")
         hh_types = get_unique_values(df, 'HHType6')
         if hh_types:
             selected_hhtype = st.multiselect(
@@ -1652,7 +1652,7 @@ def main():
         # Household Total Income Range Slider
         if 'HH_TotInc' in df.columns:
             st.markdown("---")
-            st.subheader("Household Total Income Range")
+            st.markdown("**Household Total Income Range**")
             income_min = float(df['HH_TotInc'].min())
             income_max = float(df['HH_TotInc'].max())
             # Default to full range (no filtering by default)
