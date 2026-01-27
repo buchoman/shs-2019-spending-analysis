@@ -1170,93 +1170,6 @@ def _has_granular_value(ga):
     return ga is not None and not (isinstance(ga, float) and np.isnan(ga))
 
 
-def _is_valid_number(value):
-    return value is not None and not (isinstance(value, float) and np.isnan(value))
-
-
-def _get_descendants(var_code, hierarchy_order, var_to_node):
-    """Return all descendants of var_code in hierarchy_order."""
-    ho = hierarchy_order or []
-    idx = next((i for i, c in enumerate(ho) if c == var_code), -1)
-    if idx < 0:
-        return []
-    level = _level_from_node(var_to_node, var_code)
-    if level is None:
-        return []
-    descendants = []
-    for i in range(idx + 1, len(ho)):
-        level_i = _level_from_node(var_to_node, ho[i])
-        if level_i is None:
-            continue
-        if level_i <= level:
-            break
-        descendants.append(ho[i])
-    return descendants
-
-
-def _weighted_average(values, weights):
-    if not values or not weights:
-        return None
-    total_weight = 0.0
-    total_value = 0.0
-    for value, weight in zip(values, weights):
-        if not _is_valid_number(weight):
-            continue
-        weight_f = float(weight)
-        if weight_f <= 0:
-            continue
-        total_weight += weight_f
-        total_value += float(value) * weight_f
-    if total_weight == 0:
-        return None
-    return total_value / total_weight
-
-
-def build_granular_allocation_lookup(allocation_lookup, gran_alloc, hierarchical_results, var_to_node, hierarchy_data=None):
-    """Aggregate allocation factors from the most granular allocation items, weighted by granular dollars."""
-    if not allocation_lookup or not gran_alloc or not hierarchical_results:
-        return allocation_lookup
-    hierarchy_order = (hierarchy_data or {}).get('hierarchy_order', [])
-    if not hierarchy_order:
-        return allocation_lookup
-    granular_weights = {
-        var_code: gran_alloc.get(var_code)
-        for var_code in hierarchy_order
-        if _has_granular_value(gran_alloc.get(var_code))
-    }
-    if not granular_weights:
-        return allocation_lookup
-    aggregated = {}
-    for item in hierarchical_results:
-        var_code = item['var_code']
-        candidate_codes = [var_code] + _get_descendants(var_code, hierarchy_order, var_to_node)
-        shared_vals, shared_weights = [], []
-        child_vals, child_weights = [], []
-        for code in candidate_codes:
-            if code not in granular_weights:
-                continue
-            lookup = allocation_lookup.get(code, {})
-            shared = lookup.get('shared_pct')
-            child = lookup.get('child_intensity')
-            weight = granular_weights.get(code)
-            if _is_valid_number(shared):
-                shared_vals.append(shared)
-                shared_weights.append(weight)
-            if _is_valid_number(child):
-                child_vals.append(child)
-                child_weights.append(weight)
-        shared_avg = _weighted_average(shared_vals, shared_weights)
-        child_avg = _weighted_average(child_vals, child_weights)
-        if shared_avg is None and child_avg is None:
-            aggregated[var_code] = allocation_lookup.get(var_code, {})
-        else:
-            aggregated[var_code] = {
-                'shared_pct': shared_avg if shared_avg is not None else allocation_lookup.get(var_code, {}).get('shared_pct'),
-                'child_intensity': child_avg if child_avg is not None else allocation_lookup.get(var_code, {}).get('child_intensity')
-            }
-    return aggregated
-
-
 def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     """Compute Shared Spending, Exclusive Per Child, Exclusive Per Adult so that
     Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = M.
@@ -1291,7 +1204,7 @@ def _force_shared_allocation(allocation_lookup):
     }
 
 
-def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1, granular_allocation=None):
+def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
     granular level where no item has quality 'F' (if any deeper item has F, show at the parent level).
@@ -1300,7 +1213,7 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
     so that Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = Mean Dollars Per Year."""
     display_rows = []
     INDENT_PER_LEVEL = 2  # spaces per hierarchy level
-    gran = granular_allocation if granular_allocation is not None else compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
+    gran = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
     alloc = allocation_lookup if allocation_lookup is not None else {}
     
     for item in hierarchical_results:
@@ -2031,13 +1944,6 @@ def main():
             f"<div style='text-align:center; font-size:1.4rem; font-weight:700;'>Level {granularity_level}</div>",
             unsafe_allow_html=True,
         )
-        allocation_granularity_choice = st.radio(
-            "Allocation factor granularity",
-            [f"Level {granularity_level} Allocations", "Granular Allocations"],
-            index=0,
-            key="allocation_granularity_choice",
-            help="Choose whether to use allocations at the selected level or weighted allocations from the most granular level.",
-        )
 
     st.markdown("---")
     
@@ -2287,26 +2193,16 @@ def main():
         
         # Organize results hierarchically (for summary and table)
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
-        hierarchical_results_full, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
+        hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         granularity_level = int(st.session_state.get("granularity_level", 7))
         max_granularity_level = granularity_level - 1
         hierarchical_results = filter_results_by_granularity(
-            hierarchical_results_full,
+            hierarchical_results,
             var_to_node,
             max_granularity_level
         )
         gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data_display) if hierarchical_results else {}
-        gran_alloc_full = compute_granular_allocation(hierarchical_results_full, var_to_node, hierarchy_data_display) if hierarchical_results_full else {}
         allocation_display = st.session_state.get('allocation_input')
-        allocation_mode_choice = st.session_state.get("allocation_granularity_choice", f"Level {granularity_level} Allocations")
-        if allocation_display and allocation_mode_choice == "Granular Allocations":
-            allocation_display = build_granular_allocation_lookup(
-                allocation_display,
-                gran_alloc_full,
-                hierarchical_results,
-                var_to_node,
-                hierarchy_data_display
-            )
         force_shared_allocation = st.session_state.get("force_shared_allocation", False)
         allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
         n_a = int(st.session_state.get('allocation_n_adults', 2))
@@ -2450,8 +2346,7 @@ def main():
                 hierarchical_results, var_to_node, hierarchy_data_display,
                 allocation_lookup=allocation_calc if show_allocation_columns else None,
                 n_adults=n_a,
-                n_children=n_c,
-                granular_allocation=gran_alloc
+                n_children=n_c
             )
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
             alloc_cols = ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']
@@ -2644,16 +2539,15 @@ def main():
                 allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
                 hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
-                hierarchical_results_export_full, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
+                hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
                 granularity_level = int(st.session_state.get("granularity_level", 7))
                 max_granularity_level = granularity_level - 1
                 hierarchical_results_export = filter_results_by_granularity(
-                    hierarchical_results_export_full,
+                    hierarchical_results_export,
                     var_to_node_export,
                     max_granularity_level
                 )
                 gran_alloc = compute_granular_allocation(hierarchical_results_export, var_to_node_export, hierarchy_data_export) if hierarchical_results_export else {}
-                gran_alloc_full = compute_granular_allocation(hierarchical_results_export_full, var_to_node_export, hierarchy_data_export) if hierarchical_results_export_full else {}
                 
                 # Total Consumption and Gifts = TC001 + MG001
                 total_consumption_gifts = 0
@@ -2665,16 +2559,6 @@ def main():
                 n_a = int(st.session_state.get('allocation_n_adults', 2))
                 n_c = int(st.session_state.get('allocation_n_children', 0))
                 
-                allocation_mode_choice = st.session_state.get("allocation_granularity_choice", f"Level {granularity_level} Allocations")
-                if allocation_export_calc and allocation_mode_choice == "Granular Allocations":
-                    allocation_export_calc = build_granular_allocation_lookup(
-                        allocation_export_calc,
-                        gran_alloc_full,
-                        hierarchical_results_export,
-                        var_to_node_export,
-                        hierarchy_data_export
-                    )
-
                 # Allocation totals across granular allocation rows (for middle-section percentages and dollars)
                 total_shared_d = 0.0
                 total_excl_adult_d = 0.0
