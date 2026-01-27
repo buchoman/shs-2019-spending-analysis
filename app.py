@@ -1287,6 +1287,10 @@ def main():
             border-color: #c8ccd1;
             color: #1f2933;
         }
+        section.main div[data-testid="stMarkdownContainer"] h3 {
+            font-size: 0.9rem;
+            line-height: 1.2;
+        }
         </style>
         """,
         unsafe_allow_html=True,
