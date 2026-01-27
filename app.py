@@ -2151,7 +2151,7 @@ def main():
         .metrics-margin .metric-item:last-child { border-bottom: none; padding-bottom: 0; }
         /* Summary allocation table: 2 cols, larger font to match pie */
         .summary-allocation-table { font-size: 1.1rem; border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-        .summary-allocation-table th { background: #2c3e50; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 1.05rem; }
+        .summary-allocation-table th { background: #5a8fc4; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 1.05rem; }
         .summary-allocation-table td { padding: 10px 14px; border-bottom: 1px solid #e9ecef; background: #fafbfc; font-size: 1.05rem; }
         .summary-allocation-table tr:last-child td { border-bottom: none; }
         .summary-allocation-table td:last-child { text-align: right; font-weight: 500; }
