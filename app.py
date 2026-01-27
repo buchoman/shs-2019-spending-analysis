@@ -2103,19 +2103,27 @@ def main():
         else:
             st.session_state["pending_calculate"] = True
     
+    def _handle_password_submit():
+        pwd_calc = st.session_state.get("pwd_calc", "")
+        if (pwd_calc or "") != "CPC123":
+            st.session_state["pwd_calc_error"] = "Incorrect password."
+            return
+        st.session_state["pwd_calc_error"] = None
+        st.session_state["pending_calculate"] = False
+        st.session_state["password_verified"] = True
+        _run_calculation()
+
     if st.session_state.get("pending_calculate"):
         pwd_col, _pwd_rest = st.columns([1, 4])
         with pwd_col:
-            pwd_calc = st.text_input("Enter password to run calculation", type="password", key="pwd_calc")
-        confirm_calc = st.button("Confirm and run", key="confirm_calc")
-        if confirm_calc:
-            if (pwd_calc or "") != "CPC123":
-                st.error("Incorrect password.")
-            else:
-                st.session_state["pending_calculate"] = False
-                st.session_state["password_verified"] = True
-                if not _run_calculation():
-                    return
+            st.text_input(
+                "Enter password to run calculation",
+                type="password",
+                key="pwd_calc",
+                on_change=_handle_password_submit,
+            )
+            if st.session_state.get("pwd_calc_error"):
+                st.error(st.session_state["pwd_calc_error"])
     
     # Display results based on calculation mode
     calculation_mode_display = st.session_state.get('calculation_mode', None)
