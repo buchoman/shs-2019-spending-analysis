@@ -1688,7 +1688,7 @@ def main():
     
     # MIDDLE COLUMN: Reference Person Demographics
     with col2:
-        st.subheader("Reference Person Demographics")
+        st.markdown("**Reference Person Demographics**")
         rp_age = get_unique_values(df, 'RP_AgeGrp')
         if rp_age:
             selected_rp_age = st.multiselect(
@@ -1733,7 +1733,7 @@ def main():
             if len(selected_rp_educ) > 0:
                 filters['RP_Educ'] = selected_rp_educ
         
-        st.subheader("Major Income Source")
+        st.markdown("**Major Income Source**")
         hh_majinc = get_unique_values(df, 'HH_MajIncSrc')
         if hh_majinc:
             selected_inc = st.multiselect(
@@ -1745,7 +1745,7 @@ def main():
             if len(selected_inc) > 0:
                 filters['HH_MajIncSrc'] = selected_inc
         
-        st.subheader("Private Vehicle?")
+        st.markdown("**Private Vehicle?**")
         vehicle_yn = get_unique_values(df, 'VehicleYN')
         if vehicle_yn:
             selected_vehicle = st.multiselect(
@@ -1759,7 +1759,7 @@ def main():
     
     # RIGHT COLUMN: Spouse, Children, Allocation
     with col3:
-        st.subheader("Spouse Demographics")
+        st.markdown("**Spouse Demographics**")
         # Check if SPOUSEYN exists, otherwise infer from SP_AgeGrp (if it has "96" = No spouse)
         sp_age = get_unique_values(df, 'SP_AgeGrp')
         if sp_age:
@@ -1783,7 +1783,7 @@ def main():
             if len(selected_sp_educ) > 0:
                 filters['SP_Educ'] = selected_sp_educ
         
-        st.subheader("Children in Household")
+        st.markdown("**Children in Household**")
         p0to4 = get_unique_values(df, 'P0to4YN')
         if p0to4:
             selected_p0to4 = st.multiselect(
@@ -1806,7 +1806,7 @@ def main():
             if len(selected_p5to15) > 0:
                 filters['P5to15YN'] = selected_p5to15
         
-        st.subheader("Allocation: Household Composition *")
+        st.markdown("**Allocation: Household Composition \\***")
         st.markdown("*Required before Calculate. You must choose a value (do not leave as \"— Select —\").*")
         total_adults = st.selectbox(
             "Total Adults *",
