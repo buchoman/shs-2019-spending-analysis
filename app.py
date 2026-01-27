@@ -1806,7 +1806,25 @@ def main():
             if len(selected_p5to15) > 0:
                 filters['P5to15YN'] = selected_p5to15
         
-        st.markdown("**Allocation: Household Composition \\***")
+        st.markdown(
+            """
+            <style>
+                .allocation-highlight {
+                    background-color: var(--warning-background-color, #fff3cd);
+                    padding: 0.35rem 0.5rem;
+                    border-radius: 0.35rem;
+                    display: inline-block;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            """
+            <div class="allocation-highlight"><strong>Allocation: Household Composition *</strong></div>
+            """,
+            unsafe_allow_html=True,
+        )
         total_adults = st.selectbox(
             "Total Adults *",
             options=["— Select —", 1, 2, 3, 4],
@@ -1821,7 +1839,12 @@ def main():
             key="total_children",
             help="Required. Number of children (0–6). Select a value to enable Calculate."
         )
-        st.markdown("*Required before Calculate. You must choose a value (do not leave as \"— Select —\").*")
+        st.markdown(
+            """
+            <div class="allocation-highlight"><em>Required before Calculate. You must choose a value (do not leave as "— Select —").</em></div>
+            """,
+            unsafe_allow_html=True,
+        )
     
     # Update session state with current filters for real-time updates
     st.session_state.filters = filters
