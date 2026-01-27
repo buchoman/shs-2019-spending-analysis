@@ -1271,14 +1271,14 @@ def main():
     banner_style = 'style="width:30%; height:auto;"'
     if banner_url:
         st.markdown(
-            f'<img src="{banner_url}" {banner_style} />',
+            f'<div class="shs-banner"><img src="{banner_url}" {banner_style} /></div>',
             unsafe_allow_html=True
         )
     elif banner_path.exists():
         encoded_banner = base64.b64encode(banner_path.read_bytes()).decode("utf-8")
         banner_extension = banner_path.suffix.lstrip(".") or "png"
         st.markdown(
-            f'<img src="data:image/{banner_extension};base64,{encoded_banner}" {banner_style} />',
+            f'<div class="shs-banner"><img src="data:image/{banner_extension};base64,{encoded_banner}" {banner_style} /></div>',
             unsafe_allow_html=True
         )
     else:
@@ -1286,6 +1286,15 @@ def main():
     st.markdown(
         """
         <style>
+        .shs-banner {
+            display: flex;
+            justify-content: flex-start;
+        }
+        .shs-banner img {
+            display: block;
+            margin-left: 0;
+            margin-right: auto;
+        }
         div[data-testid="stButton"] button[kind="secondary"] {
             background-color: #f0f1f2;
             border-color: #d6d8db;
