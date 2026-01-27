@@ -1288,7 +1288,7 @@ def main():
             color: #1f2933;
         }
         section.main div[data-testid="stMarkdownContainer"] h3 {
-            font-size: 0.9rem;
+            font-size: 0.55em;
             line-height: 1.2;
         }
         </style>
