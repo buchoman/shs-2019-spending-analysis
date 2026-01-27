@@ -1807,7 +1807,6 @@ def main():
                 filters['P5to15YN'] = selected_p5to15
         
         st.markdown("**Allocation: Household Composition \\***")
-        st.markdown("*Required before Calculate. You must choose a value (do not leave as \"— Select —\").*")
         total_adults = st.selectbox(
             "Total Adults *",
             options=["— Select —", 1, 2, 3, 4],
@@ -1822,6 +1821,7 @@ def main():
             key="total_children",
             help="Required. Number of children (0–6). Select a value to enable Calculate."
         )
+        st.markdown("*Required before Calculate. You must choose a value (do not leave as \"— Select —\").*")
     
     # Update session state with current filters for real-time updates
     st.session_state.filters = filters
