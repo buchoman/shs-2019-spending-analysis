@@ -2348,6 +2348,26 @@ def main():
         
         # Display by expenditure category (same columns as Excel)
         st.subheader("Allocation by Expenditure Category")
+        if hierarchical_results:
+            allocation_level_counts = {level: 0 for level in range(granularity_level)}
+            for item in hierarchical_results:
+                level = item.get('level')
+                if level is None:
+                    continue
+                try:
+                    data_level = int(level)
+                except (TypeError, ValueError):
+                    continue
+                if data_level < 0 or data_level > max_granularity_level:
+                    continue
+                ga = gran_alloc.get(item['var_code'], np.nan)
+                if _has_granular_value(ga) and str(item.get('quality', 'F')).strip().upper() != 'F':
+                    allocation_level_counts[data_level] = allocation_level_counts.get(data_level, 0) + 1
+            allocation_summary = " · ".join(
+                f"Level {display_level}: {allocation_level_counts.get(display_level - 1, 0)}"
+                for display_level in range(1, granularity_level + 1)
+            )
+            st.caption(f"Allocated categories by level (up to Level {granularity_level}): {allocation_summary}")
         _quality_help = "**Quality:** A = Publish (C.V.<16.6%); E = Use with Caution (16.6%≤CV<35%); F = Suppress (CV≥35%)."
         _child_help = "**Child Intensity:** Enter a 0–10 factor that reflects the child/adult consumption ratio for exclusive spending. A score of 0.00 means all exclusive spending is allocated to adults; 10.00 means all exclusive spending is allocated to children. A score of 4.00 implies a child consumes 4/6 (two-thirds) of an adult, so exclusive spending is distributed to each person using weights of 3 for adults and 2 for children."
         def _fmt(x, fmt):
