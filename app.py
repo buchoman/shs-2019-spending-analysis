@@ -1205,6 +1205,186 @@ def _force_shared_allocation(allocation_lookup):
     }
 
 
+def _reverse_calculate_allocation(M, shared_d, excl_per_adult_d, excl_per_child_d, n_adults, n_children):
+    """Reverse-calculate Shared % and Child Intensity from dollar amounts.
+    
+    Given total mean M and the calculated shared, exclusive per adult, and exclusive per child amounts,
+    determine what Shared % and Child Intensity would produce these values.
+    
+    Returns: (shared_pct, child_intensity) or (None, None) if calculation is not possible.
+    """
+    if M is None or M == 0 or np.isnan(M):
+        return None, None
+    
+    # Calculate shared_pct from shared amount
+    shared_pct = shared_d / M if shared_d is not None and not np.isnan(shared_d) else None
+    
+    # Calculate total exclusive spending
+    excl_total = 0.0
+    if excl_per_adult_d is not None and not np.isnan(excl_per_adult_d) and n_adults > 0:
+        excl_total += excl_per_adult_d * n_adults
+    if excl_per_child_d is not None and not np.isnan(excl_per_child_d) and n_children > 0:
+        excl_total += excl_per_child_d * n_children
+    
+    # Calculate child_intensity from exclusive amounts
+    child_intensity = None
+    if excl_total > 0 and n_children > 0 and excl_per_child_d is not None and not np.isnan(excl_per_child_d):
+        # excl_per_child = (child_intensity / 10) * excl_total / n_children
+        # So: child_intensity = (excl_per_child * n_children / excl_total) * 10
+        child_intensity = (excl_per_child_d * n_children / excl_total) * 10
+        child_intensity = max(0, min(10, child_intensity))  # Clamp to 0-10
+    elif excl_total > 0:
+        # If no children, child_intensity is 0
+        child_intensity = 0.0
+    else:
+        # If no exclusive spending, child_intensity is undefined, use 0
+        child_intensity = 0.0
+    
+    # Normalize shared_pct to 0-1 range
+    if shared_pct is not None:
+        shared_pct = max(0, min(1, shared_pct))
+    
+    return shared_pct, child_intensity
+
+
+def compute_aggregated_allocation_factors(hierarchical_results_level7, hierarchical_results_requested, var_to_node, hierarchy_data, n_adults, n_children, original_allocation_lookup):
+    """Compute aggregated allocation factors from Level 7 to the requested level.
+    
+    Args:
+        hierarchical_results_level7: Results at Level 7 (most granular)
+        hierarchical_results_requested: Results at the requested granularity level
+        var_to_node: Variable to node mapping
+        hierarchy_data: Hierarchy data structure
+        n_adults: Number of adults
+        n_children: Number of children
+        original_allocation_lookup: Original allocation lookup from Excel (used for Level 7 calculations)
+    
+    Returns:
+        Dictionary mapping var_code to {'shared_pct': float, 'child_intensity': float}
+    """
+    if not hierarchical_results_level7 or not hierarchical_results_requested:
+        return {}
+    
+    # Create a mapping of var_code to results for quick lookup
+    results_level7_dict = {r['var_code']: r for r in hierarchical_results_level7}
+    results_requested_dict = {r['var_code']: r for r in hierarchical_results_requested}
+    
+    # Create aggregated allocation lookup
+    aggregated_lookup = {}
+    
+    # For each node at the requested level, aggregate from its children at Level 7
+    for item in hierarchical_results_requested:
+        var_code = item['var_code']
+        level = int(item.get('level', 0)) if item.get('level') is not None else 0
+        
+        # If this is already at Level 7, use original allocation values
+        if level >= 6:  # Level 7 is index 6 (0-based) or level 7 (1-based)
+            if var_code in original_allocation_lookup:
+                aggregated_lookup[var_code] = original_allocation_lookup[var_code].copy()
+            continue
+        
+        # Otherwise, aggregate from children
+        shared_pct, child_intensity = _aggregate_allocation_from_children(
+            var_code, hierarchical_results_level7, var_to_node, hierarchy_data, 
+            n_adults, n_children, original_allocation_lookup
+        )
+        
+        if shared_pct is not None and child_intensity is not None:
+            aggregated_lookup[var_code] = {
+                'shared_pct': shared_pct,
+                'child_intensity': child_intensity
+            }
+    
+    return aggregated_lookup
+
+
+def _get_all_descendants(var_code, hierarchical_results_level7, var_to_node, hierarchy_data):
+    """Get all descendant nodes at Level 7 that are descendants of the given var_code."""
+    ho = (hierarchy_data or {}).get('hierarchy_order', [])
+    parent_level = int(var_to_node.get(var_code, {}).get('level', 0)) if var_to_node.get(var_code) else 0
+    
+    descendants = []
+    for result in hierarchical_results_level7:
+        desc_code = result['var_code']
+        desc_level = int(result.get('level', 0)) if result.get('level') is not None else 0
+        
+        # Check if this node is a descendant by checking if it appears after parent in hierarchy_order
+        # and has a higher level number
+        if desc_level > parent_level:
+            parent_idx = next((i for i, c in enumerate(ho) if c == var_code), -1)
+            desc_idx = next((i for i, c in enumerate(ho) if c == desc_code), -1)
+            
+            if parent_idx >= 0 and desc_idx > parent_idx:
+                # Check if this is actually a descendant (not just a later node at same level)
+                # by checking if any node between parent and desc has a level <= parent_level
+                is_descendant = True
+                for i in range(parent_idx + 1, desc_idx):
+                    intermediate_code = ho[i]
+                    intermediate_level = int(var_to_node.get(intermediate_code, {}).get('level', 0)) if var_to_node.get(intermediate_code) else 0
+                    if intermediate_level <= parent_level:
+                        is_descendant = False
+                        break
+                
+                if is_descendant:
+                    descendants.append(result)
+    
+    return descendants
+
+
+def _aggregate_allocation_from_children(parent_var_code, hierarchical_results_level7, var_to_node, hierarchy_data, n_adults, n_children, allocation_lookup):
+    """Aggregate allocation values from all Level 7 descendant nodes to a parent node.
+    
+    Returns: (shared_pct, child_intensity) calculated from weighted average of all Level 7 descendants.
+    """
+    # Get all Level 7 descendants of this parent node
+    descendant_results = _get_all_descendants(parent_var_code, hierarchical_results_level7, var_to_node, hierarchy_data)
+    
+    if not descendant_results:
+        return None, None
+    
+    # Aggregate Shared $, Exclusive (Adult) $, Exclusive (Child) $ from all descendants
+    total_mean = 0.0
+    total_shared_d = 0.0
+    total_excl_adult_d = 0.0
+    total_excl_child_d = 0.0
+    
+    for descendant in descendant_results:
+        desc_code = descendant['var_code']
+        desc_mean = descendant.get('mean', 0)
+        if desc_mean is None or np.isnan(desc_mean) or desc_mean == 0:
+            continue
+        
+        # Get allocation values for this descendant
+        lookup = allocation_lookup.get(desc_code, {}) if allocation_lookup else {}
+        shared_pct = lookup.get('shared_pct')
+        child_intensity = lookup.get('child_intensity')
+        
+        # Calculate dollar amounts for this descendant
+        shared_d, excl_per_child_d, excl_per_adult_d = _allocation_split(
+            desc_mean, shared_pct, child_intensity, n_adults, n_children
+        )
+        
+        # Aggregate using descendant mean as weight
+        total_mean += desc_mean
+        total_shared_d += shared_d
+        total_excl_adult_d += excl_per_adult_d * n_adults
+        total_excl_child_d += excl_per_child_d * n_children
+    
+    if total_mean == 0:
+        return None, None
+    
+    # Calculate per-adult and per-child amounts
+    per_adult_d = total_excl_adult_d / n_adults if n_adults > 0 else 0
+    per_child_d = total_excl_child_d / n_children if n_children > 0 else 0
+    
+    # Reverse-calculate Shared % and Child Intensity from aggregated amounts
+    shared_pct, child_intensity = _reverse_calculate_allocation(
+        total_mean, total_shared_d, per_adult_d, per_child_d, n_adults, n_children
+    )
+    
+    return shared_pct, child_intensity
+
+
 def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data=None, allocation_lookup=None, n_adults=2, n_children=1):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
@@ -1978,6 +2158,19 @@ def main():
             f"<div style='text-align:center; font-size:1.4rem; font-weight:700;'>Level {granularity_level}</div>",
             unsafe_allow_html=True,
         )
+    
+    # Toggle for calculating allocation factors using lower-level weights
+    _hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+    use_lower_level_weights = st.toggle(
+        "Calculate allocation factors using lower-level weights?",
+        value=False,
+        key="use_lower_level_weights",
+        disabled=_hide_allocation_factors,
+        help="When enabled, calculates allocation factors by aggregating from the most granular level (Level 7) up to the selected granularity level, using expenditure amounts as weights."
+    )
+    if _hide_allocation_factors and st.session_state.get("use_lower_level_weights", False):
+        st.session_state["use_lower_level_weights"] = False
+        st.info("This option is only available when 'Hide allocation factors' is turned off.")
 
     st.markdown("---")
     
@@ -2235,18 +2428,51 @@ def main():
         
         # Organize results hierarchically (for summary and table)
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
-        hierarchical_results, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
+        hierarchical_results_full, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
         granularity_level = int(st.session_state.get("granularity_level", 7))
         max_granularity_level = granularity_level - 1
+        
+        # Get results at Level 7 (most granular) for lower-level weight calculation
+        hierarchical_results_level7 = filter_results_by_granularity(
+            hierarchical_results_full,
+            var_to_node,
+            6  # Level 7 is max level (0-based: 6)
+        ) if hierarchical_results_full else []
+        
+        # Get results at requested granularity level
         hierarchical_results = filter_results_by_granularity(
-            hierarchical_results,
+            hierarchical_results_full,
             var_to_node,
             max_granularity_level
         )
+        
         gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data_display) if hierarchical_results else {}
         allocation_display = st.session_state.get('allocation_input')
         force_shared_allocation = st.session_state.get("force_shared_allocation", False)
-        allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
+        hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+        use_lower_level_weights = st.session_state.get("use_lower_level_weights", False) and not hide_allocation_factors
+        
+        # If using lower-level weights, compute aggregated allocation factors
+        if use_lower_level_weights and hierarchical_results_level7 and hierarchical_results:
+            original_allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
+            aggregated_allocation = compute_aggregated_allocation_factors(
+                hierarchical_results_level7,
+                hierarchical_results,
+                var_to_node,
+                hierarchy_data_display,
+                int(st.session_state.get('allocation_n_adults', 2)),
+                int(st.session_state.get('allocation_n_children', 0)),
+                original_allocation_calc if original_allocation_calc else {}
+            )
+            # Merge aggregated allocation with original (aggregated takes precedence for nodes that have it)
+            if allocation_display:
+                allocation_calc = allocation_display.copy()
+                allocation_calc.update(aggregated_allocation)
+            else:
+                allocation_calc = aggregated_allocation
+        else:
+            allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
+        
         n_a = int(st.session_state.get('allocation_n_adults', 2))
         n_c = int(st.session_state.get('allocation_n_children', 0))
         hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
@@ -2578,18 +2804,49 @@ def main():
                 # Prepare allocation and hierarchy for middle section and expenditure table
                 allocation_export = st.session_state.get('allocation_input')
                 force_shared_allocation = st.session_state.get("force_shared_allocation", False)
-                allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
                 hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
+                use_lower_level_weights = st.session_state.get("use_lower_level_weights", False) and not hide_allocation_factors
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
-                hierarchical_results_export, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
+                hierarchical_results_export_full, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
                 granularity_level = int(st.session_state.get("granularity_level", 7))
                 max_granularity_level = granularity_level - 1
+                
+                # Get results at Level 7 for lower-level weight calculation
+                hierarchical_results_export_level7 = filter_results_by_granularity(
+                    hierarchical_results_export_full,
+                    var_to_node_export,
+                    6  # Level 7 is max level (0-based: 6)
+                ) if hierarchical_results_export_full else []
+                
+                # Get results at requested granularity level
                 hierarchical_results_export = filter_results_by_granularity(
-                    hierarchical_results_export,
+                    hierarchical_results_export_full,
                     var_to_node_export,
                     max_granularity_level
                 )
+                
                 gran_alloc = compute_granular_allocation(hierarchical_results_export, var_to_node_export, hierarchy_data_export) if hierarchical_results_export else {}
+                
+                # If using lower-level weights, compute aggregated allocation factors
+                if use_lower_level_weights and hierarchical_results_export_level7 and hierarchical_results_export:
+                    original_allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
+                    aggregated_allocation_export = compute_aggregated_allocation_factors(
+                        hierarchical_results_export_level7,
+                        hierarchical_results_export,
+                        var_to_node_export,
+                        hierarchy_data_export,
+                        int(st.session_state.get('allocation_n_adults', 2)),
+                        int(st.session_state.get('allocation_n_children', 0)),
+                        original_allocation_export_calc if original_allocation_export_calc else {}
+                    )
+                    # Merge aggregated allocation with original (aggregated takes precedence)
+                    if allocation_export:
+                        allocation_export_calc = allocation_export.copy()
+                        allocation_export_calc.update(aggregated_allocation_export)
+                    else:
+                        allocation_export_calc = aggregated_allocation_export
+                else:
+                    allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
                 
                 # Total Consumption and Gifts = TC001 + MG001
                 total_consumption_gifts = 0
