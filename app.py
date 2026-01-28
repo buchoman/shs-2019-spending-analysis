@@ -1174,7 +1174,9 @@ def _has_granular_value(ga):
 def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     """Compute Shared Spending, Exclusive Per Child, Exclusive Per Adult so that
     Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = M.
-    Child Intensity Index: dollars (of every $10 of exclusive spending) to child; 0=all to adult, 10=all to child.
+    Child Intensity Index: 0–10, interpreted as the child/adult relative consumption ratio
+    (e.g., 4.0 implies child consumes 4/6 = 2/3 of an adult). Exclusive spending is
+    distributed to individuals based on those weights.
     shared_pct: fraction 0–1 (if >1 treated as 0–100 and scaled). child_intensity: 0–10.
     """
     s = shared_pct if shared_pct is not None else 0
@@ -1187,12 +1189,19 @@ def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     n_c = max(0, int(n_children) if n_children is not None else 0)
     shared = s * M
     excl_total = (1 - s) * M
-    if n_c > 0:
-        excl_per_child = (c_idx / 10) * excl_total / n_c
-        excl_per_adult = ((10 - c_idx) / 10) * excl_total / n_a
-    else:
+    if n_c == 0:
         excl_per_child = 0.0
         excl_per_adult = excl_total / n_a
+        return shared, excl_per_child, excl_per_adult
+    adult_weight = max(0.0, 10.0 - c_idx)
+    child_weight = max(0.0, c_idx)
+    total_weight = n_a * adult_weight + n_c * child_weight
+    if total_weight <= 0:
+        excl_per_child = 0.0
+        excl_per_adult = excl_total / n_a
+    else:
+        excl_per_adult = excl_total * adult_weight / total_weight
+        excl_per_child = excl_total * child_weight / total_weight
     return shared, excl_per_child, excl_per_adult
 
 
@@ -2340,7 +2349,7 @@ def main():
         # Display by expenditure category (same columns as Excel)
         st.subheader("Allocation by Expenditure Category")
         _quality_help = "**Quality:** A = Publish (C.V.<16.6%); E = Use with Caution (16.6%≤CV<35%); F = Suppress (CV≥35%)."
-        _child_help = "**Child Intensity:** For every ten units of exclusive spending in a home containing adults and children, a 0.00 score means that 100% is spent on a representative adult, a 1.00 score means that 100% is spent on a representative child, and a 0.50 score means equal spending on children and adults."
+        _child_help = "**Child Intensity:** Enter a 0–10 factor that reflects the child/adult consumption ratio for exclusive spending. A score of 0.00 means all exclusive spending is allocated to adults; 10.00 means all exclusive spending is allocated to children. A score of 4.00 implies a child consumes 4/6 (two-thirds) of an adult, so exclusive spending is distributed to each person using weights of 3 for adults and 2 for children."
         def _fmt(x, fmt):
             if pd.isna(x) or (isinstance(x, (int, float)) and (x != x)): return ""
             if fmt == 'cur': return f"${float(x):,.2f}" if (isinstance(x, (int, float)) or np.issubdtype(type(x), np.number)) else (str(x) if x != "" else "")
