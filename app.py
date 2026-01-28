@@ -1277,15 +1277,13 @@ def compute_aggregated_allocation_factors(hierarchical_results_level7, hierarchi
         var_code = item['var_code']
         level = int(item.get('level', 0)) if item.get('level') is not None else 0
         
-        # If this is already at Level 7, use original allocation values directly
-        # (no aggregation needed since Level 7 is the most granular)
+        # If this is already at Level 7, use original allocation values
         if level >= 6:  # Level 7 is index 6 (0-based) or level 7 (1-based)
             if var_code in original_allocation_lookup:
                 aggregated_lookup[var_code] = original_allocation_lookup[var_code].copy()
-            # If no original value exists, skip (don't create empty entry)
             continue
         
-        # For nodes above Level 7, aggregate from all Level 7 descendants
+        # Otherwise, aggregate from children
         shared_pct, child_intensity = _aggregate_allocation_from_children(
             var_code, hierarchical_results_level7, var_to_node, hierarchy_data, 
             n_adults, n_children, original_allocation_lookup
@@ -2454,14 +2452,9 @@ def main():
         hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
         use_lower_level_weights = st.session_state.get("use_lower_level_weights", False) and not hide_allocation_factors
         
-        # If using lower-level weights, compute aggregated allocation factors from Level 7
-        # IMPORTANT: When switch is OFF, use ONLY original spreadsheet values (no aggregation)
-        # When switch is ON, use ONLY aggregated values (completely replace spreadsheet values)
+        # If using lower-level weights, compute aggregated allocation factors
         if use_lower_level_weights and hierarchical_results_level7 and hierarchical_results:
-            # Get original allocation for Level 7 calculations
             original_allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
-            
-            # Compute aggregated allocation factors from Level 7 up to requested level
             aggregated_allocation = compute_aggregated_allocation_factors(
                 hierarchical_results_level7,
                 hierarchical_results,
@@ -2471,16 +2464,13 @@ def main():
                 int(st.session_state.get('allocation_n_children', 0)),
                 original_allocation_calc if original_allocation_calc else {}
             )
-            
-            # When switch is ON, use ONLY aggregated values (completely replace, don't merge)
-            # Only include nodes that have aggregated values
-            allocation_calc = {}
-            for item in hierarchical_results:
-                var_code = item['var_code'] if isinstance(item, dict) else item
-                if var_code in aggregated_allocation:
-                    allocation_calc[var_code] = aggregated_allocation[var_code].copy()
+            # Merge aggregated allocation with original (aggregated takes precedence for nodes that have it)
+            if allocation_display:
+                allocation_calc = allocation_display.copy()
+                allocation_calc.update(aggregated_allocation)
+            else:
+                allocation_calc = aggregated_allocation
         else:
-            # When switch is OFF, use ONLY original spreadsheet values
             allocation_calc = _force_shared_allocation(allocation_display) if force_shared_allocation else allocation_display
         
         n_a = int(st.session_state.get('allocation_n_adults', 2))
@@ -2837,14 +2827,9 @@ def main():
                 
                 gran_alloc = compute_granular_allocation(hierarchical_results_export, var_to_node_export, hierarchy_data_export) if hierarchical_results_export else {}
                 
-                # If using lower-level weights, compute aggregated allocation factors from Level 7
-                # IMPORTANT: When switch is OFF, use ONLY original spreadsheet values
-                # When switch is ON, use ONLY aggregated values (completely replace)
+                # If using lower-level weights, compute aggregated allocation factors
                 if use_lower_level_weights and hierarchical_results_export_level7 and hierarchical_results_export:
-                    # Get original allocation for Level 7 calculations
                     original_allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
-                    
-                    # Compute aggregated allocation factors from Level 7 up to requested level
                     aggregated_allocation_export = compute_aggregated_allocation_factors(
                         hierarchical_results_export_level7,
                         hierarchical_results_export,
@@ -2854,16 +2839,13 @@ def main():
                         int(st.session_state.get('allocation_n_children', 0)),
                         original_allocation_export_calc if original_allocation_export_calc else {}
                     )
-                    
-                    # When switch is ON, use ONLY aggregated values (completely replace, don't merge)
-                    # Only include nodes that have aggregated values
-                    allocation_export_calc = {}
-                    for item in hierarchical_results_export:
-                        var_code = item['var_code'] if isinstance(item, dict) else item
-                        if var_code in aggregated_allocation_export:
-                            allocation_export_calc[var_code] = aggregated_allocation_export[var_code].copy()
+                    # Merge aggregated allocation with original (aggregated takes precedence)
+                    if allocation_export:
+                        allocation_export_calc = allocation_export.copy()
+                        allocation_export_calc.update(aggregated_allocation_export)
+                    else:
+                        allocation_export_calc = aggregated_allocation_export
                 else:
-                    # When switch is OFF, use ONLY original spreadsheet values
                     allocation_export_calc = _force_shared_allocation(allocation_export) if force_shared_allocation else allocation_export
                 
                 # Total Consumption and Gifts = TC001 + MG001
