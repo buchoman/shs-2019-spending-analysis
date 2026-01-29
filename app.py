@@ -1088,12 +1088,6 @@ def filter_vars_by_granularity(var_codes, var_to_node, max_level):
     return filtered
 
 
-def _select_spending_vars_for_calculation(var_codes, var_to_node, max_level, use_lower_level_weights):
-    if use_lower_level_weights:
-        return list(var_codes)
-    return filter_vars_by_granularity(var_codes, var_to_node, max_level)
-
-
 def _get_direct_children(var_code, hierarchy_order, var_to_node):
     """Return direct children of var_code in the tree, from hierarchy_order (depth-first).
     Direct children are nodes at level L+1 in the segment after var_code until we rise to level <= L."""
@@ -2111,7 +2105,6 @@ def main():
         _tc = st.session_state.get("total_children", "— Select —")
         _hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
         st.session_state["force_shared_allocation"] = bool(_hide_allocation_factors)
-        use_lower_level_weights = bool(st.session_state.get("use_lower_level_weights", False)) and not _hide_allocation_factors
         if not _hide_allocation_factors:
             if _ta == "— Select —" or _ta not in [1, 2, 3, 4]:
                 st.error("Please select **Total Adults** (1–4) in Allocation: Household Composition before calculating.")
@@ -2140,11 +2133,10 @@ def main():
         max_granularity_level = granularity_level - 1
         all_hierarchy_vars = ho if ho else sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
         available_spending_vars = [var for var in all_hierarchy_vars if variable_exists(filtered_df, var)]
-        available_spending_vars = _select_spending_vars_for_calculation(
+        available_spending_vars = filter_vars_by_granularity(
             available_spending_vars,
             var_to_node,
-            max_granularity_level,
-            use_lower_level_weights,
+            max_granularity_level
         )
         if len(available_spending_vars) == 0:
             st.error("No spending variables found in the dataset.")
