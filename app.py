@@ -1219,21 +1219,11 @@ def _force_shared_allocation(allocation_lookup):
         for var_code in allocation_lookup.keys()
     }
 
-
-def _is_summary_row(var_code):
-    totals = set(SPENDING_CATEGORIES.get("Totals", []))
-    return var_code in totals
-
-
 def _ancestor_at_level(var_code, var_to_node, target_level):
     node = var_code
     while node:
         level = var_to_node.get(node, {}).get('level')
-        try:
-            level_value = int(level) if level is not None else None
-        except (TypeError, ValueError):
-            level_value = None
-        if level_value == target_level:
+        if level == target_level:
             return node
         node = var_to_node.get(node, {}).get('parent')
     return None
@@ -1269,24 +1259,22 @@ def _compute_lower_level_allocation_totals(
             n_adults,
             n_children,
         )
-        shared_total = shared
-        adult_total = n_adults * excl_per_adult
-        child_total = n_children * excl_per_child
-        summary_totals['shared'] += shared_total
-        summary_totals['adult_total'] += adult_total
-        summary_totals['child_total'] += child_total
+        summary_totals['shared'] += shared
+        summary_totals['adult_total'] += n_adults * excl_per_adult
+        summary_totals['child_total'] += n_children * excl_per_child
+        per_person_total = shared + excl_per_adult + excl_per_child
 
         node = vc if target_level is None else _ancestor_at_level(vc, var_to_node, target_level)
         if not node:
             continue
         bucket = totals_by_node.setdefault(
             node,
-            {"shared": 0.0, "adult_total": 0.0, "child_total": 0.0, "total": 0.0},
+            {"shared": 0.0, "adult": 0.0, "child": 0.0, "total": 0.0},
         )
-        bucket['shared'] += shared_total
-        bucket['adult_total'] += adult_total
-        bucket['child_total'] += child_total
-        bucket['total'] += shared_total + adult_total + child_total
+        bucket['shared'] += shared
+        bucket['adult'] += excl_per_adult
+        bucket['child'] += excl_per_child
+        bucket['total'] += per_person_total
 
     return totals_by_node, summary_totals
 
@@ -1344,22 +1332,16 @@ def build_hierarchical_display(
                 if use_lower_level_weights and allocation_totals:
                     level_match = target_level is None or level == target_level
                     totals = allocation_totals.get(var_code) if level_match else None
-                    if _is_summary_row(var_code):
-                        row['Shared %'] = np.nan
-                        row['Child Intensity'] = np.nan
-                        row['Shared $'] = np.nan
-                        row['Exclusive (Adult) $'] = np.nan
-                        row['Exclusive (Child) $'] = np.nan
-                    elif totals and totals.get('total', 0) > 0:
+                    if totals and totals.get('total', 0) > 0:
                         shared = totals['shared']
-                        adult_total = totals['adult_total']
-                        child_total = totals['child_total']
+                        adult = totals['adult']
+                        child = totals['child']
                         total = totals['total']
                         row['Shared %'] = (shared / total) if total > 0 else np.nan
-                        row['Child Intensity'] = (child_total / (adult_total + child_total)) if (adult_total + child_total) > 0 else np.nan
+                        row['Child Intensity'] = (child / (adult + child)) if (adult + child) > 0 else np.nan
                         row['Shared $'] = shared
-                        row['Exclusive (Adult) $'] = adult_total
-                        row['Exclusive (Child) $'] = child_total
+                        row['Exclusive (Adult) $'] = adult
+                        row['Exclusive (Child) $'] = child
                     else:
                         row['Shared %'] = np.nan
                         row['Child Intensity'] = np.nan
@@ -2863,20 +2845,18 @@ def main():
                             else:
                                 if use_lower_level_weights and lower_level_allocations:
                                     totals = lower_level_allocations.get(var_code) if level == max_granularity_level else None
-                                    if _is_summary_row(var_code):
-                                        row.extend(["", "", "", "", ""])
-                                    elif totals and totals.get('total', 0) > 0:
+                                    if totals and totals.get('total', 0) > 0:
                                         shared = totals['shared']
-                                        adult_total = totals['adult_total']
-                                        child_total = totals['child_total']
+                                        adult = totals['adult']
+                                        child = totals['child']
                                         total = totals['total']
                                         shared_pct = (shared / total) if total > 0 else None
-                                        child_intensity = (child_total / (adult_total + child_total)) if (adult_total + child_total) > 0 else None
+                                        child_intensity = (child / (adult + child)) if (adult + child) > 0 else None
                                         row.append(round(shared_pct, 4) if shared_pct is not None else "")
                                         row.append(round(child_intensity, 2) if child_intensity is not None else "")
                                         row.append(round(shared, 2))
-                                        row.append(round(adult_total, 2))
-                                        row.append(round(child_total, 2))
+                                        row.append(round(adult, 2))
+                                        row.append(round(child, 2))
                                     else:
                                         row.extend(["", "", "", "", ""])
                                 else:
