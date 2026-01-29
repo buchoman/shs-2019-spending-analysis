@@ -1219,16 +1219,6 @@ def _force_shared_allocation(allocation_lookup):
         for var_code in allocation_lookup.keys()
     }
 
-def _ancestor_at_level(var_code, var_to_node, target_level):
-    node = var_code
-    while node:
-        level = var_to_node.get(node, {}).get('level')
-        if level == target_level:
-            return node
-        node = var_to_node.get(node, {}).get('parent')
-    return None
-
-
 def _compute_lower_level_allocation_totals(
     hierarchical_results,
     var_to_node,
@@ -1236,11 +1226,11 @@ def _compute_lower_level_allocation_totals(
     allocation_lookup,
     n_adults,
     n_children,
-    target_level=None,
 ):
     if not allocation_lookup or not hierarchical_results:
         return {}, {"shared": 0.0, "adult_total": 0.0, "child_total": 0.0}
     gran_alloc = compute_granular_allocation(hierarchical_results, var_to_node, hierarchy_data)
+    parent_map = {code: data.get('parent') for code, data in (var_to_node or {}).items()}
     totals_by_node = {}
     summary_totals = {"shared": 0.0, "adult_total": 0.0, "child_total": 0.0}
 
@@ -1264,17 +1254,17 @@ def _compute_lower_level_allocation_totals(
         summary_totals['child_total'] += n_children * excl_per_child
         per_person_total = shared + excl_per_adult + excl_per_child
 
-        node = vc if target_level is None else _ancestor_at_level(vc, var_to_node, target_level)
-        if not node:
-            continue
-        bucket = totals_by_node.setdefault(
-            node,
-            {"shared": 0.0, "adult": 0.0, "child": 0.0, "total": 0.0},
-        )
-        bucket['shared'] += shared
-        bucket['adult'] += excl_per_adult
-        bucket['child'] += excl_per_child
-        bucket['total'] += per_person_total
+        node = vc
+        while node:
+            bucket = totals_by_node.setdefault(
+                node,
+                {"shared": 0.0, "adult": 0.0, "child": 0.0, "total": 0.0},
+            )
+            bucket['shared'] += shared
+            bucket['adult'] += excl_per_adult
+            bucket['child'] += excl_per_child
+            bucket['total'] += per_person_total
+            node = parent_map.get(node)
 
     return totals_by_node, summary_totals
 
@@ -1288,7 +1278,6 @@ def build_hierarchical_display(
     n_children=1,
     allocation_totals=None,
     use_lower_level_weights=False,
-    target_level=None,
 ):
     """Build display data with nested indentation: Level 2 indented from Level 1, Level 3 from Level 2, etc.
     'Granular Allocation': subset of Mean Dollars per Year for TC001/MG001 branches; per branch, the most
@@ -1330,8 +1319,7 @@ def build_hierarchical_display(
                 row['Exclusive (Child) $'] = ""
             else:
                 if use_lower_level_weights and allocation_totals:
-                    level_match = target_level is None or level == target_level
-                    totals = allocation_totals.get(var_code) if level_match else None
+                    totals = allocation_totals.get(var_code)
                     if totals and totals.get('total', 0) > 0:
                         shared = totals['shared']
                         adult = totals['adult']
@@ -2378,7 +2366,6 @@ def main():
                 allocation_calc,
                 n_a,
                 n_c,
-                target_level=max_granularity_level,
             )
         
         # Summary block (same as Excel): Total Consumption and Gifts, N Adults/Children, Shared/Exclusive with Dollars|Percent
@@ -2546,7 +2533,6 @@ def main():
                 n_children=n_c,
                 allocation_totals=lower_level_allocations if use_lower_level_weights else None,
                 use_lower_level_weights=use_lower_level_weights,
-                target_level=max_granularity_level,
             )
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
             alloc_cols = ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']
@@ -2761,7 +2747,6 @@ def main():
                         allocation_export_calc,
                         n_a,
                         n_c,
-                        target_level=max_granularity_level,
                     )
                 
                 # Total Consumption and Gifts = TC001 + MG001
@@ -2844,7 +2829,7 @@ def main():
                                 row.extend(["", "", "", "", ""])
                             else:
                                 if use_lower_level_weights and lower_level_allocations:
-                                    totals = lower_level_allocations.get(var_code) if level == max_granularity_level else None
+                                    totals = lower_level_allocations.get(var_code)
                                     if totals and totals.get('total', 0) > 0:
                                         shared = totals['shared']
                                         adult = totals['adult']
