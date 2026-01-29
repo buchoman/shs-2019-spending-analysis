@@ -1248,12 +1248,16 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
         if allocation_lookup is not None:
             if is_f:
                 row['Shared %'] = ""
+                row['Exclusive (Adult) %'] = ""
+                row['Exclusive (Child) %'] = ""
                 row['Child Intensity'] = ""
                 row['Shared $'] = ""
                 row['Exclusive (Adult) $'] = ""
                 row['Exclusive (Child) $'] = ""
             else:
                 row['Shared %'] = lookup.get('shared_pct') if show_alloc else np.nan
+                row['Exclusive (Adult) %'] = np.nan
+                row['Exclusive (Child) %'] = np.nan
                 row['Child Intensity'] = lookup.get('child_intensity') if show_alloc else np.nan
                 if show_alloc:
                     shared, excl_per_child, excl_per_adult = _allocation_split(
@@ -1265,6 +1269,9 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
                     row['Shared $'] = shared
                     row['Exclusive (Adult) $'] = excl_per_adult
                     row['Exclusive (Child) $'] = excl_per_child
+                    if item['mean']:
+                        row['Exclusive (Adult) %'] = excl_per_adult / item['mean']
+                        row['Exclusive (Child) %'] = excl_per_child / item['mean']
                 else:
                     row['Shared $'] = np.nan
                     row['Exclusive (Adult) $'] = np.nan
@@ -2214,7 +2221,7 @@ def main():
         // Right-justify specific column headers and cells
         function alignNumericColumns() {
             const tables = document.querySelectorAll('div[data-testid="stDataFrame"] table');
-            const numericHeaders = ['Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $', 'Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'];
+            const numericHeaders = ['Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $', 'Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'];
             
             tables.forEach(table => {
                 const headers = Array.from(table.querySelectorAll('thead th'));
@@ -2420,7 +2427,7 @@ def main():
                 n_children=n_c
             )
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
-            alloc_cols = ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']
+            alloc_cols = ['Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']
             display_cols = exp_cols + [c for c in alloc_cols if c in display_df.columns]
             display_df = display_df[[c for c in display_cols if c in display_df.columns]].copy()
             for col in ['Reported $', 'Allocated $', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']:
@@ -2428,8 +2435,9 @@ def main():
                     display_df[col] = _format_column_vectorized(display_df[col], 'cur')
             if 'Coefficient of Variation' in display_df.columns:
                 display_df['Coefficient of Variation'] = _format_column_vectorized(display_df['Coefficient of Variation'], 'dec2')
-            if 'Shared %' in display_df.columns:
-                display_df['Shared %'] = _format_column_vectorized(display_df['Shared %'], 'pct')
+            for pct_col in ['Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %']:
+                if pct_col in display_df.columns:
+                    display_df[pct_col] = _format_column_vectorized(display_df[pct_col], 'pct')
             if 'Child Intensity' in display_df.columns:
                 display_df['Child Intensity'] = _format_column_vectorized(display_df['Child Intensity'], 'score')
             st.dataframe(display_df, use_container_width=True, height=400, hide_index=True)
@@ -2455,20 +2463,21 @@ def main():
                 fallback_df.loc[f_mask, 'Reported $'] = ""
                 fallback_df.loc[f_mask, 'Allocated $'] = ""
             if allocation_display and not hide_allocation_factors:
-                for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
+                for c in ['Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
                     fallback_df[c] = ""
                 if 'Quality' in fallback_df.columns:
-                    for c in ['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
+                    for c in ['Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %', 'Child Intensity', 'Shared $', 'Exclusive (Child) $', 'Exclusive (Adult) $']:
                         fallback_df.loc[f_mask, c] = ""
             exp_cols = ['Expenditure Category', 'Reported $', 'Coefficient of Variation', 'Quality', 'Allocated $']
-            fallback_df = fallback_df[[c for c in exp_cols + (['Shared %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'] if allocation_display and not hide_allocation_factors else []) if c in fallback_df.columns]].copy()
+            fallback_df = fallback_df[[c for c in exp_cols + (['Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %', 'Child Intensity', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $'] if allocation_display and not hide_allocation_factors else []) if c in fallback_df.columns]].copy()
             for col in ['Reported $', 'Allocated $', 'Shared $', 'Exclusive (Adult) $', 'Exclusive (Child) $']:
                 if col in fallback_df.columns:
                     fallback_df[col] = _format_column_vectorized(fallback_df[col], 'cur')
             if 'Coefficient of Variation' in fallback_df.columns:
                 fallback_df['Coefficient of Variation'] = _format_column_vectorized(fallback_df['Coefficient of Variation'], 'dec2')
-            if 'Shared %' in fallback_df.columns:
-                fallback_df['Shared %'] = _format_column_vectorized(fallback_df['Shared %'], 'pct')
+            for pct_col in ['Shared %', 'Exclusive (Adult) %', 'Exclusive (Child) %']:
+                if pct_col in fallback_df.columns:
+                    fallback_df[pct_col] = _format_column_vectorized(fallback_df[pct_col], 'pct')
             if 'Child Intensity' in fallback_df.columns:
                 fallback_df['Child Intensity'] = _format_column_vectorized(fallback_df['Child Intensity'], 'score')
             st.dataframe(fallback_df, use_container_width=True, height=400, hide_index=True)
@@ -2670,7 +2679,7 @@ def main():
                 all_data.append(["Results"])
                 exp_header = ["Expenditure Category", "Reported $", "Coefficient of Variation", "Quality", "Allocated $"]
                 if allocation_export_calc is not None and not hide_allocation_factors:
-                    exp_header += ["Shared %", "Child Intensity", "Shared $", "Exclusive (Adult) $", "Exclusive (Child) $"]
+                    exp_header += ["Shared %", "Exclusive (Adult) %", "Exclusive (Child) %", "Child Intensity", "Shared $", "Exclusive (Adult) $", "Exclusive (Child) $"]
                 all_data.append(exp_header)
                 exp_header_excel_row = len(all_data)
                 exp_num_cols = len(exp_header)
@@ -2695,22 +2704,37 @@ def main():
                         ]
                         if allocation_export_calc is not None and not hide_allocation_factors:
                             if is_f:
-                                row.extend(["", "", "", "", ""])
+                                row.extend(["", "", "", "", "", "", ""])
                             else:
                                 show_alloc = _has_granular_value(ga)
                                 lookup = allocation_export_calc.get(var_code, {}) if show_alloc else {}
                                 v1 = lookup.get('shared_pct')
                                 v2 = lookup.get('child_intensity')
                                 s = (v1 / 100 if (isinstance(v1, (int, float)) and v1 > 1) else v1) if v1 is not None else None
-                                row.append(round(s, 4) if s is not None else "")  # fraction for Excel 0.00%
-                                row.append(round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else "")
+                                shared_pct_val = round(s, 4) if s is not None else ""
+                                excl_adult_pct_val = ""
+                                excl_child_pct_val = ""
+                                child_intensity_val = round(v2, 2) if v2 is not None and isinstance(v2, (int, float)) else ""
+                                shared_val = ""
+                                excl_a_val = ""
+                                excl_c_val = ""
                                 if show_alloc:
                                     shared, excl_c, excl_a = _allocation_split(item['mean'], v1, v2, n_a, n_c)
-                                    row.append(round(shared, 2))
-                                    row.append(round(excl_a, 2))
-                                    row.append(round(excl_c, 2))
-                                else:
-                                    row.extend(["", "", ""])
+                                    shared_val = round(shared, 2)
+                                    excl_a_val = round(excl_a, 2)
+                                    excl_c_val = round(excl_c, 2)
+                                    if item['mean']:
+                                        excl_adult_pct_val = round(excl_a / item['mean'], 4)
+                                        excl_child_pct_val = round(excl_c / item['mean'], 4)
+                                row.extend([
+                                    shared_pct_val,
+                                    excl_adult_pct_val,
+                                    excl_child_pct_val,
+                                    child_intensity_val,
+                                    shared_val,
+                                    excl_a_val,
+                                    excl_c_val
+                                ])
                         all_data.append(row)
                 else:
                     need = ['Spending Description', 'Mean Dollars Per Year', 'Coefficient of Variation', 'Data Quality Category']
@@ -2739,7 +2763,7 @@ def main():
                             "" if is_f else ""
                         ]
                         if allocation_export_calc is not None and not hide_allocation_factors:
-                            data_row.extend(["", "", "", "", ""])
+                            data_row.extend(["", "", "", "", "", "", ""])
                         all_data.append(data_row)
                 
                 # Convert to DataFrame and write
@@ -2816,8 +2840,9 @@ def main():
                     ws.cell(row=r, column=c).alignment = Alignment(horizontal=cur.horizontal, wrap_text=False, vertical=cur.vertical)
             
             # Expenditure: 1=Expenditure Category (text), 2=Reported $ (currency), 3=Coefficient of Variation (0.00),
-            # 4=Quality (text), 5=Allocated $ (currency), 6=Shared % (0.00%), 7=Child Intensity (#.00),
-            # 8=Shared $, 9=Exclusive (Adult) $, 10=Exclusive (Child) $ (currency)
+            # 4=Quality (text), 5=Allocated $ (currency), 6=Shared % (0.00%), 7=Exclusive (Adult) % (0.00%),
+            # 8=Exclusive (Child) % (0.00%), 9=Child Intensity (#.00), 10=Shared $, 11=Exclusive (Adult) $,
+            # 12=Exclusive (Child) $ (currency)
             fmt_currency2 = '$#,##0.00'
             fmt_currency0 = '$#,##0'
             fmt_pct = '0.00%'
@@ -2831,11 +2856,11 @@ def main():
                         cell.number_format = fmt_currency2
                     elif c == 3 and exp_num_cols >= 3:
                         cell.number_format = fmt_dec2
-                    elif c == 6 and exp_num_cols >= 6:
+                    elif c in (6, 7, 8) and exp_num_cols >= c:
                         cell.number_format = fmt_pct
-                    elif c == 7 and exp_num_cols >= 7:
+                    elif c == 9 and exp_num_cols >= 9:
                         cell.number_format = fmt_dec2
-                    elif c in (8, 9, 10) and exp_num_cols >= c:
+                    elif c in (10, 11, 12) and exp_num_cols >= c:
                         cell.number_format = fmt_currency2
             
             # Middle section: Total Consumption and Gifts, N Adults/Children, header Dollars|Percent, 3 allocation rows (B=$, C=%)
