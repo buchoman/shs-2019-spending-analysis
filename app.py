@@ -1674,7 +1674,7 @@ def main():
             if len(selected_tenure) > 0:
                 filters['Tenure'] = selected_tenure
         
-        # Household Total Income Range Slider
+        # Household Total Income Range Inputs
         if 'HH_TotInc' in df.columns:
             st.markdown("---")
             st.markdown("**Household Total Income Range**")
@@ -1683,18 +1683,38 @@ def main():
             # Default to full range (no filtering by default)
             income_default_min = income_min
             income_default_max = income_max
-            
-            income_options = list(range(int(income_min), int(income_max) + 1, 1000))
-            if income_options[-1] != int(income_max):
-                income_options.append(int(income_max))
-            income_range = st.select_slider(
-                "Total Household Income ($)",
-                options=income_options,
-                value=(int(income_default_min), int(income_default_max)),
-                format_func=lambda x: f"${x:,.0f}",
-                help="Select the minimum and maximum household income range. Drag the sliders to adjust. Default includes all households."
+
+            income_input_cols = st.columns(2)
+            with income_input_cols[0]:
+                income_min_input = st.number_input(
+                    "Minimum income ($)",
+                    min_value=int(income_min),
+                    max_value=int(income_max),
+                    value=int(income_default_min),
+                    step=1000,
+                    format="%d",
+                    help="Set the minimum household income value."
+                )
+            with income_input_cols[1]:
+                income_max_input = st.number_input(
+                    "Maximum income ($)",
+                    min_value=int(income_min),
+                    max_value=int(income_max),
+                    value=int(income_default_max),
+                    step=1000,
+                    format="%d",
+                    help="Set the maximum household income value."
+                )
+            if income_min_input > income_max_input:
+                st.warning("Minimum income is greater than maximum income. Values have been swapped.")
+                income_min_input, income_max_input = income_max_input, income_min_input
+
+            income_range = (income_min_input, income_max_input)
+            st.markdown(
+                f"<p style='font-size: 1em; font-weight: normal;'>Selected range: "
+                f"<strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>",
+                unsafe_allow_html=True
             )
-            st.markdown(f"<p style='font-size: 1em; font-weight: normal;'>Selected range: <strong>${income_range[0]:,.0f}</strong> to <strong>${income_range[1]:,.0f}</strong></p>", unsafe_allow_html=True)
             count_placeholder = st.empty()
             button_cols = st.columns([6, 4])
             with button_cols[0]:
