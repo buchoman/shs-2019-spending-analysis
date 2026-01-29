@@ -11,6 +11,7 @@ import pyreadstat
 from pathlib import Path
 import os
 import json
+from io import BytesIO
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -727,6 +728,21 @@ def save_allocation_to_cache(data):
             json.dump(data, f, indent=2)
     except Exception:
         pass
+
+
+@st.cache_data
+def load_default_allocation():
+    """Load default allocation input from the bundled Excel form."""
+    alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
+    if not alloc_form_path.exists():
+        return None, "Allocation Input Form.xlsx not found."
+    try:
+        parsed, err = parse_allocation_input_excel(BytesIO(alloc_form_path.read_bytes()))
+    except Exception as exc:
+        return None, str(exc)
+    if err:
+        return None, err
+    return parsed, None
 
 
 # Load hierarchy structure
@@ -1930,9 +1946,18 @@ def main():
     # Allocation Input: load from cache if not yet in session (remains valid until replaced by new upload)
     if 'allocation_input' not in st.session_state:
         cached = load_allocation_from_cache()
-        st.session_state['allocation_input'] = cached if isinstance(cached, dict) else None
+        if isinstance(cached, dict):
+            st.session_state['allocation_input'] = cached
+        else:
+            defaults, default_err = load_default_allocation()
+            st.session_state['allocation_input'] = defaults if isinstance(defaults, dict) else None
+            if default_err:
+                st.session_state['allocation_input_default_error'] = default_err
     
     st.markdown("**Allocation Input (optional)**")
+    default_alloc_error = st.session_state.get("allocation_input_default_error")
+    if default_alloc_error:
+        st.warning(f"Default allocations could not be loaded: {default_alloc_error}")
     alloc_mode = st.radio(
         "Allocation mode",
         ["Default Allocations", "Custom Allocations"],
