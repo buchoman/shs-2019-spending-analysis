@@ -1950,7 +1950,19 @@ def main():
                     t = tw * (p / 100)
                     i = np.searchsorted(cw, t, side='left')
                     i = min(i, len(inc_s) - 1)
-                    cutoffs.append(float(inc_s[i]))
+                    if i == 0:
+                        cutoff = inc_s[0]
+                    else:
+                        cw_low = cw[i - 1]
+                        cw_high = cw[i]
+                        inc_low = inc_s[i - 1]
+                        inc_high = inc_s[i]
+                        if cw_high == cw_low:
+                            cutoff = inc_high
+                        else:
+                            frac = (t - cw_low) / (cw_high - cw_low)
+                            cutoff = inc_low + frac * (inc_high - inc_low)
+                    cutoffs.append(float(cutoff))
                 st.session_state.quintile_cutoffs = cutoffs
                 tab = [["Q1–Q2", f"${cutoffs[0]:,.0f}"], ["Q2–Q3", f"${cutoffs[1]:,.0f}"], ["Q3–Q4", f"${cutoffs[2]:,.0f}"], ["Q4–Q5", f"${cutoffs[3]:,.0f}"]]
                 table_cols = st.columns([1, 4])
