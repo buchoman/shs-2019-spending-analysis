@@ -2054,10 +2054,12 @@ def main():
     _children_ok = _tc != "— Select —" and _tc in [0, 1, 2, 3, 4, 5, 6]
     _hide_allocation_factors = st.session_state.get("hide_allocation_factors", False)
     _show_calculate = _hide_allocation_factors or (_adults_ok and _children_ok)
+    pwd_container = None
     if _show_calculate:
-        btn_col, _ = st.columns([1, 4])
+        btn_col, pwd_col, _ = st.columns([1, 1, 3])
         with btn_col:
             calculate_income_range = st.button("Calculate", type="primary", use_container_width=True)
+        pwd_container = pwd_col.empty()
     else:
         calculate_income_range = False
         btn_col, _ = st.columns([1, 4])
@@ -2213,9 +2215,8 @@ def main():
         st.session_state["password_verified"] = True
         _run_calculation()
 
-    if st.session_state.get("pending_calculate"):
-        pwd_col, _pwd_rest = st.columns([1, 4])
-        with pwd_col:
+    if st.session_state.get("pending_calculate") and pwd_container is not None:
+        with pwd_container:
             st.text_input(
                 "Enter password to run calculation",
                 type="password",
