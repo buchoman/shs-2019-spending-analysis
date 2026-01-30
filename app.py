@@ -1990,7 +1990,7 @@ def main():
     default_alloc_error = st.session_state.get("allocation_input_default_error")
     if default_alloc_error:
         st.warning(f"Default allocations could not be loaded: {default_alloc_error}")
-    mode_col, pw_col = st.columns([3, 1], gap="small")
+    mode_col, pw_col = st.columns([3, 2])
     with mode_col:
         alloc_mode = st.radio(
             "Allocation mode",
@@ -2001,8 +2001,8 @@ def main():
         )
     if alloc_mode == "Custom Allocations":
         with pw_col:
-            pw = st.text_input("Password Required", type="password", key="alloc_pw")
-            st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
+            pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw")
+        st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
         alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
         if (pw or "") == "CPC123":
             st.session_state["password_verified"] = True
