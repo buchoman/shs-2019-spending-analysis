@@ -2218,11 +2218,13 @@ def main():
     if st.session_state.get("pending_calculate") and pwd_container is not None:
         with pwd_container:
             st.text_input(
-                "Enter password to run calculation",
+                "Password for calculation",
                 type="password",
                 key="pwd_calc",
                 on_change=_handle_password_submit,
+                label_visibility="collapsed",
             )
+            st.caption("Enter password to run calculation")
             if st.session_state.get("pwd_calc_error"):
                 st.error(st.session_state["pwd_calc_error"])
     
