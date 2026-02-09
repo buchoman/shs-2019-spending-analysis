@@ -2206,24 +2206,25 @@ def main():
         else:
             st.session_state["pending_calculate"] = True
     
-    def _handle_password_submit():
-        pwd_calc = st.session_state.get("pwd_calc", "")
-        if (pwd_calc or "") != "CPC123":
-            st.session_state["pwd_calc_error"] = "Incorrect password."
-            return
-        st.session_state["pwd_calc_error"] = None
-        st.session_state["pending_calculate"] = False
-        st.session_state["password_verified"] = True
-        _run_calculation()
-
     if st.session_state.get("pending_calculate") and pwd_container is not None:
         with pwd_container:
-            st.text_input(
-                "Enter password to run calculation",
-                type="password",
-                key="pwd_calc",
-                on_change=_handle_password_submit,
-            )
+            with st.form("calc_password_form"):
+                st.text_input(
+                    "Enter password to run calculation",
+                    type="password",
+                    key="pwd_calc",
+                )
+                submit_password = st.form_submit_button("Submit password")
+            if submit_password:
+                pwd_calc = st.session_state.get("pwd_calc", "")
+                if (pwd_calc or "") != "CPC123":
+                    st.session_state["pwd_calc_error"] = "Incorrect password."
+                    st.session_state["pwd_calc"] = ""
+                else:
+                    st.session_state["pwd_calc_error"] = None
+                    st.session_state["pending_calculate"] = False
+                    st.session_state["password_verified"] = True
+                    _run_calculation()
             if st.session_state.get("pwd_calc_error"):
                 st.error(st.session_state["pwd_calc_error"])
     
