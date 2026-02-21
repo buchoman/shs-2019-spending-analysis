@@ -1,0 +1,6 @@
+Fix allocation factors toggle: ensure proper recalculation when switch changes
+
+- Fix issue where allocation factors weren't properly recalculating when toggle changes
+- When switch is OFF: use ONLY original spreadsheet values (no aggregation)
+- When switch is ON: use ONLY aggregated values (completely replace, don't merge)
+- Ensures toggle always produces different results with no caching issues

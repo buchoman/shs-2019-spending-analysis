@@ -47,8 +47,11 @@ env/
 .DS_Store
 Thumbs.db
 
-# Data files - exclude large .txt files (app only uses .sas7bdat)
+# Data files - exclude large .txt files (2019 app uses .sas7bdat)
 SHS_EDM_2019/Data/TXT/*.txt
+
+# Raw data archives (extracted content in RY2021/ is tracked via LFS)
+SHS_EDM_2021.zip
 
 # Temporary files
 *.tmp
@@ -56,4 +59,5 @@ SHS_EDM_2019/Data/TXT/*.txt
 
 # Allocation input cache (user upload, replaced on new upload)
 allocation_input_latest.json
+allocation_input_2021_latest.json
 
