@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from io import BytesIO
 import json
 import warnings
 warnings.filterwarnings('ignore')
@@ -40,12 +41,37 @@ ALLOCATION_INPUT_CACHE = Path("allocation_input_2021_latest.json")
 VALUE_LABELS = YEAR_CONFIG.get_value_labels()
 
 def format_value(var_name, value):
-    """Format a value using its label if available"""
-    if var_name in VALUE_LABELS:
-        # Convert to string for comparison
+    """Format a value using its label if available. Handles 2021 data where codes may be '01', 1, or 1.0."""
+    # Map canonical column names to value label keys (config uses e.g. RP_AGEGRP, app uses RP_AgeGrp)
+    _canonical_to_key = {
+        "RP_AgeGrp": "RP_AGEGRP", "RP_Gender": "RP_GENDER", "RP_MarStat": "RP_MARSTAT", "RP_Educ": "RP_EDUC",
+        "SP_AgeGrp": "SP_AGEGRP", "SP_Gender": "SP_GENDER", "SP_Educ": "SP_EDUC",
+        "Prov": "PROV", "HHType6": "HHTYPE6", "HHSize": "HHSIZE", "DwellTyp": "DWELTYP", "Tenure": "TENURE",
+        "Numbedr": "NUMBEDR", "VehicleYN": "VEHICLEYN", "RecVehYN": "RECVEHYN",
+        "HH_MajIncSrc": "HH_MAJINCSRC", "P0to4YN": "P0TO4YN", "P5to15YN": "P5TO15YN",
+    }
+    key = var_name if var_name in VALUE_LABELS else _canonical_to_key.get(var_name, var_name)
+    if key not in VALUE_LABELS:
+        return str(value)
+    labels = VALUE_LABELS[key]
+    # Normalize value: handle numpy int/float, 1.0 -> "1", etc.
+    try:
+        v = float(value)
+        if v == int(v):
+            str_val = str(int(v))
+        else:
+            str_val = str(value).strip()
+    except (TypeError, ValueError):
         str_val = str(value).strip()
-        if str_val in VALUE_LABELS[var_name]:
-            return VALUE_LABELS[var_name][str_val]
+    if str_val in labels:
+        return labels[str_val]
+    # Try normalized forms: "1" <-> "01", "2" <-> "02" for 2-digit codes
+    if str_val.replace(".", "").isdigit() or str_val.isdigit():
+        cand = str_val.zfill(2) if len(str_val) <= 2 else str_val
+        if cand in labels:
+            return labels[cand]
+        if str_val.zfill(2) in labels:
+            return labels[str_val.zfill(2)]
     return str(value)
 
 # Parent/aggregate variables that should be excluded from category totals (to avoid double-counting)
@@ -612,6 +638,21 @@ def save_allocation_to_cache(data):
             json.dump(data, f, indent=2)
     except Exception:
         pass
+
+
+@st.cache_data
+def load_default_allocation():
+    """Load default allocation input from the bundled Excel form."""
+    alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
+    if not alloc_form_path.exists():
+        return None, "Allocation Input Form.xlsx not found."
+    try:
+        parsed, err = parse_allocation_input_excel(BytesIO(alloc_form_path.read_bytes()))
+    except Exception as exc:
+        return None, str(exc)
+    if err:
+        return None, err
+    return parsed, None
 
 
 # Load hierarchy structure
@@ -1955,9 +1996,18 @@ def main():
     # Allocation Input: load from cache if not yet in session (remains valid until replaced by new upload)
     if 'allocation_input' not in st.session_state:
         cached = load_allocation_from_cache()
-        st.session_state['allocation_input'] = cached if isinstance(cached, dict) else None
+        if isinstance(cached, dict):
+            st.session_state['allocation_input'] = cached
+        else:
+            defaults, default_err = load_default_allocation()
+            st.session_state['allocation_input'] = defaults if isinstance(defaults, dict) else None
+            if default_err:
+                st.session_state['allocation_input_default_error'] = default_err
     
     st.markdown("**Allocation Input (optional)**")
+    default_alloc_error = st.session_state.get("allocation_input_default_error")
+    if default_alloc_error:
+        st.warning(f"Default allocations could not be loaded: {default_alloc_error}")
     alloc_mode = st.radio(
         "Allocation mode",
         ["Default Allocations", "Custom Allocations"],
