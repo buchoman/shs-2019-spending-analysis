@@ -23,8 +23,33 @@ class YearConfig2019(YearConfigBase):
         }
 
     def get_variable_mapping(self) -> dict:
-        # 2019 uses SAS; pyreadstat preserves column names. No renaming.
-        return {}
+        # 2019 SAS column names -> canonical app column names
+        return {
+            "CASEID": "CaseID",
+            "WEIGHTD": "WeightD",
+            "HH_TOTINC": "HH_TotInc",
+            "PROV": "Prov",
+            "HHTYPE6": "HHType6",
+            "HHSIZE": "HHSize",
+            "DWELTYP": "DwellTyp",
+            "TENURE": "Tenure",
+            "NUMBEDR": "Numbedr",
+            "RP_AGEGP": "RP_AgeGrp",
+            "RP_AGEGRP": "RP_AgeGrp",
+            "RP_GEN": "RP_Gender",
+            "RP_MAST": "RP_MarStat",
+            "RP_EDUC": "RP_Educ",
+            "SP_AGEGP": "SP_AgeGrp",
+            "SP_AGEGRP": "SP_AgeGrp",
+            "SP_GEN": "SP_Gender",
+            "SP_EDUC": "SP_Educ",
+            "SPOUSEYN": "SpouseYN",
+            "P0TO4YN": "P0to4YN",
+            "P5TO15YN": "P5to15YN",
+            "OWNVEH": "VehicleYN",
+            "OWNRV": "RecVehYN",
+            "MAJINS": "HH_MajIncSrc",
+        }
 
     def get_value_labels(self) -> dict:
         return {
@@ -116,3 +141,7 @@ class YearConfig2019(YearConfigBase):
                 "4": "Other income",
             },
         }
+
+    def get_income_column(self) -> str:
+        """Canonical column name after apply_rename (HH_TotInc)."""
+        return "HH_TotInc"

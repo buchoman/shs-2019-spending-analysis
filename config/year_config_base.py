@@ -57,6 +57,33 @@ class YearConfigBase(ABC):
         """
         return {}
 
+    def get_allocation_form_filename(self) -> str:
+        """Filename for the allocation input form Excel (e.g. Allocation Input Form.xlsx)."""
+        return f"Allocation Input Form {self.year}.xlsx" if self.year != 2019 else "Allocation Input Form.xlsx"
+
+    def get_allocation_cache_filename(self) -> str:
+        """Filename for the allocation cache JSON."""
+        return f"allocation_input_{self.year}_latest.json"
+
+    def get_banner_path(self) -> Path:
+        """Path to banner image, or None if not used."""
+        if self.year == 2021:
+            return Path("2021 version.png")
+        return Path("assets/shs-banner.png")
+
+    def get_excel_title(self) -> str:
+        """Title for Excel export cell A1."""
+        return f"{self.year} SHS"
+
+    def get_income_column(self) -> str:
+        """Column name for household total income in the dataframe."""
+        return "HH_TotInc"
+
+    def get_filter_column(self, label_key: str) -> str:
+        """Map value label key to actual dataframe column name."""
+        mapping = self.get_variable_mapping()
+        return mapping.get(label_key, label_key)
+
     def apply_rename(self, df):
         """
         Apply variable mapping to DataFrame columns.
