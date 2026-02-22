@@ -68,8 +68,8 @@ class YearConfigBase(ABC):
     def get_banner_path(self) -> Path:
         """Path to banner image, or None if not used."""
         if self.year == 2021:
-            return Path("2021 version.png")
-        return Path("assets/shs-banner.png")
+            return Path("assets/2021 PUMF.png")
+        return Path("assets/2019 PUMF.png")
 
     def get_excel_title(self) -> str:
         """Title for Excel export cell A1."""
