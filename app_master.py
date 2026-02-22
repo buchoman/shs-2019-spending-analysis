@@ -890,17 +890,33 @@ def determine_data_quality_category(cv, n=None, region=None):
     
     return quality_category
 
+def _canonical_filter_code(x):
+    """Normalize categorical codes for comparison (handles 1 vs 01, 2 vs 02 between 2019/2021)."""
+    try:
+        s = str(x).strip()
+        if s.replace(".", "").replace("-", "").isdigit():
+            return str(int(float(s)))
+        return s
+    except (TypeError, ValueError):
+        return str(x)
+
+
 def filter_data(df, filters, income_range=None, income_col='HH_TotInc'):
-    """Apply filters to the dataset"""
+    """Apply filters to the dataset. Normalizes categorical codes so filters carry across year change (e.g. 2 vs 02)."""
     filtered_df = df.copy()
     
     for var, value in filters.items():
         if value is not None and var in filtered_df.columns:
             if isinstance(value, list):
                 if len(value) > 0:
-                    filtered_df = filtered_df[filtered_df[var].isin(value)]
+                    # Normalize filter values for 2019/2021 code differences (e.g. "2" vs "02")
+                    canon_values = {_canonical_filter_code(v) for v in value}
+                    col_canon = filtered_df[var].apply(_canonical_filter_code)
+                    filtered_df = filtered_df[col_canon.isin(canon_values)]
             else:
-                filtered_df = filtered_df[filtered_df[var] == value]
+                canon_val = _canonical_filter_code(value)
+                col_canon = filtered_df[var].apply(_canonical_filter_code)
+                filtered_df = filtered_df[col_canon == canon_val]
     
     # Apply income range filter if provided
     if income_range is not None and income_col in filtered_df.columns:
@@ -2555,7 +2571,7 @@ def main():
                             pass
         
         # Display by expenditure category (same columns as Excel)
-        st.subheader("Allocation by Expenditure Category")
+        st.subheader(f"Allocation by Expenditure Category ({year_choice})")
         _quality_help = "**Quality:** A = Publish (C.V.<16.6%); E = Use with Caution (16.6%≤CV<35%); F = Suppress (CV≥35%)."
         _child_help = "**Child Intensity:** For every ten units of exclusive spending in a home containing adults and children, a 0.00 score means that 100% is spent on a representative adult, a 1.00 score means that 100% is spent on a representative child, and a 0.50 score means equal spending on children and adults."
         def _fmt(x, fmt):
