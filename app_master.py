@@ -2182,7 +2182,7 @@ def main():
             "Level of Granularity",
             min_value=3,
             max_value=7,
-            value=7,
+            value=3,
             step=1,
             key="granularity_level",
             help="Select the maximum hierarchy level to include. Level 7 includes the most detailed categories.",
@@ -2258,7 +2258,7 @@ def main():
             return (var in df.columns or (var + '_C') in df.columns or (var + '_D') in df.columns)
         ho = hierarchy_data.get('hierarchy_order', []) if hierarchy_data else []
         var_to_node = hierarchy_data.get('var_to_node', {}) if hierarchy_data else {}
-        granularity_level = int(st.session_state.get("granularity_level", 7))
+        granularity_level = int(st.session_state.get("granularity_level", 3))
         max_granularity_level = granularity_level - 1
         all_hierarchy_vars = ho if ho else sorted(set(ALL_SPENDING_VARS) | PARENT_TOTALS)
         available_spending_vars = [var for var in all_hierarchy_vars if variable_exists(filtered_df, var)]
@@ -2455,7 +2455,7 @@ def main():
         # Organize results hierarchically (for summary and table)
         hierarchy_data_display = st.session_state.get('hierarchy_data', hierarchy_data)
         hierarchical_results_full, var_to_node = organize_hierarchical_results(results_df, hierarchy_data_display)
-        granularity_level = int(st.session_state.get("granularity_level", 7))
+        granularity_level = int(st.session_state.get("granularity_level", 3))
         max_granularity_level = granularity_level - 1
         
         # Get results at Level 7 (most granular) for lower-level weight calculation
@@ -2809,7 +2809,7 @@ def main():
                 use_lower_level_weights = st.session_state.get("use_lower_level_weights", False) and not hide_allocation_factors
                 hierarchy_data_export = st.session_state.get('hierarchy_data', hierarchy_data)
                 hierarchical_results_export_full, var_to_node_export = organize_hierarchical_results(results_df, hierarchy_data_export)
-                granularity_level = int(st.session_state.get("granularity_level", 7))
+                granularity_level = int(st.session_state.get("granularity_level", 3))
                 max_granularity_level = granularity_level - 1
                 
                 # Get results at Level 7 for lower-level weight calculation
