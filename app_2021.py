@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import os
 from io import BytesIO
 import json
 import warnings
@@ -643,9 +644,9 @@ def save_allocation_to_cache(data):
 @st.cache_data
 def load_default_allocation():
     """Load default allocation input from the bundled Excel form."""
-    alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
+    alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form 2021.xlsx"
     if not alloc_form_path.exists():
-        return None, "Allocation Input Form.xlsx not found."
+        return None, "Allocation Input Form 2021.xlsx not found."
     try:
         parsed, err = parse_allocation_input_excel(BytesIO(alloc_form_path.read_bytes()))
     except Exception as exc:
@@ -1373,7 +1374,14 @@ def build_hierarchical_display(hierarchical_results, var_to_node, hierarchy_data
     return pd.DataFrame(display_rows)
 
 def main():
-    st.title("💰 Survey of Household Spending 2021 - Spending Analysis")
+    banner_path = Path("2021 version.png")
+    banner_url = os.getenv("SHS_BANNER_URL")
+    if banner_url:
+        st.image(banner_url, width="stretch")
+    elif banner_path.exists():
+        st.image(str(banner_path), width="stretch")
+    else:
+        st.title("Survey of Household Spending 2021 - Spending Analysis")
     st.markdown(
         """
         <style>
@@ -1387,6 +1395,10 @@ def main():
             background-color: #e6e8ea;
             border-color: #c8ccd1;
             color: #1f2933;
+        }
+        section.main div[data-testid="stMarkdownContainer"] h3 {
+            font-size: 0.55em;
+            line-height: 1.2;
         }
         </style>
         """,
@@ -2017,7 +2029,7 @@ def main():
     )
     if alloc_mode == "Custom Allocations":
         st.caption("Your custom Allocation Input Form will remain valid until browser is closed.")
-        alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form.xlsx"
+        alloc_form_path = Path(__file__).resolve().parent / "Allocation Input Form 2021.xlsx"
         pw_col, _pw_rest = st.columns([1, 4])
         with pw_col:
             pw = st.text_input("Password for Allocation Input Form (download/upload)", type="password", key="alloc_pw")
@@ -2025,9 +2037,9 @@ def main():
             st.session_state["password_verified"] = True
             if alloc_form_path.exists():
                 form_bytes = alloc_form_path.read_bytes()
-                st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
+                st.download_button("Download Allocation Input Form (.xlsx)", data=form_bytes, file_name="Allocation Input Form 2021.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="alloc_download")
             else:
-                st.caption("Allocation Input Form.xlsx not found in project root; add it to enable download.")
+                st.caption("Allocation Input Form 2021.xlsx not found in project root; add it to enable download.")
             uploaded = st.file_uploader("Upload Allocation Input Form (Excel)", type=['xlsx', 'xls'], key="allocation_upload")
             if uploaded is not None:
                 parsed, err = parse_allocation_input_excel(uploaded)
