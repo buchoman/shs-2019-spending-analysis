@@ -58,12 +58,12 @@ class YearConfigBase(ABC):
         return {}
 
     def get_allocation_form_filename(self) -> str:
-        """Filename for the allocation input form Excel (e.g. Allocation Input Form.xlsx)."""
-        return f"Allocation Input Form {self.year}.xlsx" if self.year != 2019 else "Allocation Input Form.xlsx"
+        """Filename for the allocation input form Excel. Use 2021 form for both years as default."""
+        return "Allocation Input Form 2021.xlsx"
 
     def get_allocation_cache_filename(self) -> str:
-        """Filename for the allocation cache JSON."""
-        return f"allocation_input_{self.year}_latest.json"
+        """Filename for the allocation cache JSON. Shared across years (2021 form used for both)."""
+        return "allocation_input_master_latest.json"
 
     def get_banner_path(self) -> Path:
         """Path to banner image, or None if not used."""
@@ -80,9 +80,25 @@ class YearConfigBase(ABC):
         return "HH_TotInc"
 
     def get_filter_column(self, label_key: str) -> str:
-        """Map value label key to actual dataframe column name."""
+        """Map value label key (e.g. HH_MAJINCSRC) to actual dataframe column name (e.g. HH_MajIncSrc)."""
+        # Label keys are uppercase; canonical columns use mixed case. Build reverse from variable mapping.
         mapping = self.get_variable_mapping()
-        return mapping.get(label_key, label_key)
+        canonical = mapping.get(label_key, None)
+        if canonical is not None:
+            return canonical
+        # Also check: mapping values might be canonical; find by uppercasing
+        for pumf, can in mapping.items():
+            if can.upper().replace(" ", "_") == label_key.replace(" ", "_"):
+                return can
+        # Fallback: common label_key -> canonical
+        _label_to_canonical = {
+            "HH_MAJINCSRC": "HH_MajIncSrc", "VEHICLEYN": "VehicleYN", "RECVEHYN": "RecVehYN",
+            "PROV": "Prov", "HHTYPE6": "HHType6", "HHSIZE": "HHSize", "DWELTYP": "DwellTyp",
+            "TENURE": "Tenure", "NUMBEDR": "Numbedr", "RP_AGEGRP": "RP_AgeGrp", "RP_GENDER": "RP_Gender",
+            "RP_MARSTAT": "RP_MarStat", "RP_EDUC": "RP_Educ", "SP_AGEGRP": "SP_AgeGrp",
+            "SP_GENDER": "SP_Gender", "SP_EDUC": "SP_Educ", "P0TO4YN": "P0to4YN", "P5TO15YN": "P5to15YN",
+        }
+        return _label_to_canonical.get(label_key, label_key)
 
     def apply_rename(self, df):
         """
