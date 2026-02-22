@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import os
+import base64
 from io import BytesIO
 import json
 import warnings
@@ -1418,9 +1419,39 @@ def main():
     banner_path = YEAR_CONFIG.get_banner_path()
     banner_url = os.getenv("SHS_BANNER_URL")
     if banner_url:
-        st.image(banner_url, width="stretch")
+        banner_src = banner_url
     elif banner_path.exists():
-        st.image(str(banner_path), width="stretch")
+        ext = banner_path.suffix.lower().lstrip(".")
+        mime_type = "png" if ext == "png" else "jpeg"
+        encoded_banner = base64.b64encode(banner_path.read_bytes()).decode("utf-8")
+        banner_src = f"data:image/{mime_type};base64,{encoded_banner}"
+    else:
+        banner_src = None
+
+    if banner_src:
+        st.markdown(
+            f"""
+            <style>
+            .top-banner-wrap {{
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }}
+            .top-banner-wrap img {{
+                width: 100%;
+                height: 220px;
+                object-fit: contain;
+                object-position: center top;
+            }}
+            </style>
+            <div class="top-banner-wrap">
+                <img src="{banner_src}" alt="SHS PUMF Banner" />
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
         st.title(f"Survey of Household Spending {year_choice} - Spending Analysis")
     st.markdown(
