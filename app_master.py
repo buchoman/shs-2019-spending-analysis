@@ -2000,6 +2000,17 @@ def main():
     st.session_state.filters = filters
     st.session_state.income_range = income_range
     
+    # Invalidate cached results when data year or filters change (force recalculation)
+    def _calc_context_snapshot():
+        f_items = tuple(sorted((k, tuple(v) if isinstance(v, (list, tuple)) else v) for k, v in filters.items()))
+        inc = income_range if income_range is None else (float(income_range[0]), float(income_range[1]))
+        return (year_choice, f_items, inc)
+    _ctx = _calc_context_snapshot()
+    if st.session_state.get("_last_calc_context") != _ctx:
+        for key in ("calculation_mode", "results", "hierarchy_data"):
+            st.session_state.pop(key, None)
+        st.session_state["_last_calc_context"] = _ctx
+    
     # Calculate and display matching records count in real-time
     filtered_df = filter_data(df, filters, income_range=st.session_state.income_range, income_col=YEAR_CONFIG.get_income_column())
     filtered_count = len(filtered_df)
