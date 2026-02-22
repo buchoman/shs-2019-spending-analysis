@@ -1462,9 +1462,7 @@ def main():
             
             st.markdown("### Access")
             st.markdown("""
-            Open the application in a web browser:
-            
-            **https://shs-2021-spending-analysis.streamlit.app/**
+            Open the application in a web browser using the current deployment link provided by your team.
             
             No installation is required. Microsoft Excel is only needed if you intend to create or modify custom weight files.
             
@@ -1530,9 +1528,7 @@ def main():
             
             st.markdown("### Access and Authorisation")
             st.markdown("""
-            The application is available at:
-            
-            **https://shs-2021-spending-analysis.streamlit.app/**
+            Access the application through the current deployment link provided by your team.
             
             Some functions within the application are restricted to authorised users, including:
             - Running expenditure calculations
