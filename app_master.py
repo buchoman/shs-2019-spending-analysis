@@ -27,19 +27,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Version selector (mandatory, must select before any other UI) ---
+# --- Version selector (default to 2021 on initial load) ---
 st.header("Select Survey Year")
 year_choice = st.radio(
     "Survey Version",
     options=[2019, 2021],
     format_func=lambda x: str(x),
-    index=None,
+    index=1,
     key="year_selector",
-    help="Select the survey year to analyze. This selection is required before proceeding.",
+    help="Select the survey year to analyze. Defaults to 2021.",
 )
-if year_choice is None:
-    st.warning("Please select a survey year (2019 or 2021) to continue.")
-    st.stop()
 
 # Year configuration based on selection
 YEAR_CONFIG = YearConfig2019() if year_choice == 2019 else YearConfig2021()
