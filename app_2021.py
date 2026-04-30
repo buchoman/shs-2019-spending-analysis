@@ -1101,7 +1101,9 @@ def _has_granular_value(ga):
 def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     """Compute Shared Spending, Exclusive Per Child, Exclusive Per Adult so that
     Shared + n_adults*ExclPerAdult + n_children*ExclPerChild = M.
-    Child Intensity Index: dollars (of every $10 of exclusive spending) to child; 0=all to adult, 10=all to child.
+    Child Intensity Index: 0–10, interpreted as the child/adult relative consumption ratio
+    (e.g., 4.0 implies child consumes 4/6 = 2/3 of an adult). Exclusive spending is
+    distributed to individuals based on those weights.
     shared_pct: fraction 0–1 (if >1 treated as 0–100 and scaled). child_intensity: 0–10.
     """
     s = shared_pct if shared_pct is not None else 0
@@ -1114,12 +1116,19 @@ def _allocation_split(M, shared_pct, child_intensity, n_adults, n_children):
     n_c = max(0, int(n_children) if n_children is not None else 0)
     shared = s * M
     excl_total = (1 - s) * M
-    if n_c > 0:
-        excl_per_child = (c_idx / 10) * excl_total / n_c
-        excl_per_adult = ((10 - c_idx) / 10) * excl_total / n_a
-    else:
+    if n_c == 0:
         excl_per_child = 0.0
         excl_per_adult = excl_total / n_a
+        return shared, excl_per_child, excl_per_adult
+    adult_weight = max(0.0, 10.0 - c_idx)
+    child_weight = max(0.0, c_idx)
+    total_weight = n_a * adult_weight + n_c * child_weight
+    if total_weight <= 0:
+        excl_per_child = 0.0
+        excl_per_adult = excl_total / n_a
+    else:
+        excl_per_adult = excl_total * adult_weight / total_weight
+        excl_per_child = excl_total * child_weight / total_weight
     return shared, excl_per_child, excl_per_adult
 
 
