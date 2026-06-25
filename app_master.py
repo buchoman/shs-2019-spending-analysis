@@ -1,5 +1,5 @@
 """
-Survey of Household Spending - Master App (2019 / 2021)
+Survey of Household Spending - Master App (2019 / 2021 / 2023)
 This application allows users to select survey year and demographic attributes to get
 detailed estimates of average household spending with bootstrap variance estimates.
 """
@@ -18,7 +18,14 @@ warnings.filterwarnings('ignore')
 import pyreadstat
 from config.year_config_2019 import YearConfig2019
 from config.year_config_2021 import YearConfig2021
+from config.year_config_2023 import YearConfig2023
 from loaders.fixed_width_loader import load_fixed_width_pumf, load_fixed_width_bsw
+
+YEAR_CONFIGS = {
+    2019: YearConfig2019,
+    2021: YearConfig2021,
+    2023: YearConfig2023,
+}
 
 # Set page config
 st.set_page_config(
@@ -31,7 +38,7 @@ st.set_page_config(
 st.header("Select Survey Year")
 year_choice = st.radio(
     "Survey Version",
-    options=[2019, 2021],
+    options=[2019, 2021, 2023],
     format_func=lambda x: str(x),
     index=1,
     key="year_selector",
@@ -39,7 +46,7 @@ year_choice = st.radio(
 )
 
 # Year configuration based on selection
-YEAR_CONFIG = YearConfig2019() if year_choice == 2019 else YearConfig2021()
+YEAR_CONFIG = YEAR_CONFIGS[year_choice]()
 
 # Data paths from config
 _paths = YEAR_CONFIG.get_data_paths()
@@ -198,6 +205,11 @@ SPENDING_DESCRIPTIONS = {
     "CS005": "Cell phone and pager services",
     "CS007": "Internet access services",
     "CS008": "Digital services",
+    "CS009": "Digital services",
+    "CS014": "Streaming services",
+    "CS015": "Online gambling",
+    "CS016": "Online gaming",
+    "CS017": "Other digital services",
     "CS020": "Postal, courier, delivery and other communication services",
     "CS021": "Telephones and equipment",
     "CS030": "Communications",
@@ -410,6 +422,9 @@ SPENDING_DESCRIPTIONS = {
     "RE062": "Movie theatres",
     "RE063": "Live sporting and performing arts events",
     "RE066": "Admission fees to museums, zoos, and other sites",
+    "RE083": "Movie theatres",
+    "RE084": "Live sporting and performing arts events",
+    "RE087": "Admission fees to museums, zoos and other sites",
     "RE067": "Television and satellite radio services (including installation, service and pay TV charges)",
     "RE074": "Package trips",
     "RE090": "Use of recreational facilities and fees for other recreational activities",
@@ -471,6 +486,8 @@ SPENDING_DESCRIPTIONS = {
     "TR021": "Fees for rented vehicles (including insurance and mileage)",
     "TR022": "Other expenses for rented automobiles, vans and trucks",
     "TR030": "Automobile, van and truck operations",
+    "TR043": "Charging expenses for electric vehicles",
+    "TR080": "Vehicle operations",
     "TR031": "Registration fees (including insurance if part of registration)",
     "TR033": "Tires, batteries, and other parts and supplies for vehicles",
     "TR034": "Maintenance and repairs of vehicles",
@@ -485,9 +502,9 @@ SPENDING_DESCRIPTIONS = {
     "TE001": "Total expenditure"
 }
 
-# Get all spending variables (apply 2021 code mapping where variables differ)
+# Get all spending variables (apply year-specific code mapping where variables differ)
 def _map_spending_codes(codes_iter):
-    """Apply year-specific spending code mapping (2019->2021 where different)."""
+    """Apply year-specific spending code mapping from reference codes to this year."""
     mapping = YEAR_CONFIG.get_spending_code_mapping()
     result = []
     for c in codes_iter:
@@ -499,6 +516,8 @@ def _map_spending_codes(codes_iter):
 ALL_SPENDING_VARS = []
 for category, vars_list in SPENDING_CATEGORIES.items():
     ALL_SPENDING_VARS.extend(_map_spending_codes(vars_list))
+for vars_list in YEAR_CONFIG.get_extra_spending_codes().values():
+    ALL_SPENDING_VARS.extend(vars_list)
 ALL_SPENDING_VARS = sorted(set(ALL_SPENDING_VARS))
 
 # Items to include - only the 19 specified expenditure categories
@@ -1499,9 +1518,9 @@ def main():
         
         with doc_tab1:
             st.markdown("### Purpose")
-            st.markdown("""
-            The SHS 2021 Spending Analysis app is a tool for forensic economists used to estimate household expenditures 
-            and expenditure allocation factors using Statistics Canada's 2021 Survey of Household Spending (SHS) 
+            st.markdown(f"""
+            The SHS {year_choice} Spending Analysis app is a tool for forensic economists used to estimate household expenditures 
+            and expenditure allocation factors using Statistics Canada's {year_choice} Survey of Household Spending (SHS) 
             Public Use Microdata File (PUMF). It is designed to support forensic economic analysis, including 
             fatality and personal injury claims.
             """)
@@ -1556,9 +1575,9 @@ def main():
         
         with doc_tab2:
             st.markdown("### Introduction")
-            st.markdown("""
-            The SHS 2021 Spending Analysis web application is an analytical tool for forensic economists. It supports 
-            forensic economic analysis using data from Statistics Canada's 2021 Survey of Household Spending (SHS) 
+            st.markdown(f"""
+            The SHS {year_choice} Spending Analysis web application is an analytical tool for forensic economists. It supports 
+            forensic economic analysis using data from Statistics Canada's {year_choice} Survey of Household Spending (SHS) 
             Public Use Microdata File (PUMF).
             
             The SHS is a nationally representative survey that collects detailed information on household expenditures, 
@@ -1588,8 +1607,8 @@ def main():
             st.markdown("### Key Capabilities")
             
             st.markdown("#### 1. Demographic Filtering")
-            st.markdown("""
-            The application allows users to filter the 2021 SHS data by key household and demographic characteristics, 
+            st.markdown(f"""
+            The application allows users to filter the {year_choice} SHS data by key household and demographic characteristics, 
             including (but not limited to):
             - Province or region
             - Household type (e.g. single person, couple with children)
@@ -1675,8 +1694,8 @@ def main():
             """)
             
             st.markdown("### Conclusion")
-            st.markdown("""
-            The SHS 2021 Spending Analysis app provides forensic economists with a robust, defensible framework for estimating 
+            st.markdown(f"""
+            The SHS {year_choice} Spending Analysis app provides forensic economists with a robust, defensible framework for estimating 
             household expenditures based on nationally representative survey data. By combining demographic filtering, 
             weighted means, and bootstrap-based measures of reliability, the application supports high-quality forensic 
             economic analysis suitable for litigation and advisory work.
@@ -2289,6 +2308,9 @@ def main():
             return False
         var_to_category = {}
         for cat, vars_list in SPENDING_CATEGORIES.items():
+            for var in _map_spending_codes(vars_list):
+                var_to_category[var] = cat
+        for cat, vars_list in YEAR_CONFIG.get_extra_spending_codes().items():
             for var in vars_list:
                 var_to_category[var] = cat
         

@@ -57,6 +57,10 @@ class YearConfigBase(ABC):
         """
         return {}
 
+    def get_extra_spending_codes(self) -> dict:
+        """Category → codes that exist only in this year (not in SPENDING_CATEGORIES)."""
+        return {}
+
     def get_allocation_form_filename(self) -> str:
         """Filename for the allocation input form Excel. Use 2021 form for both years as default."""
         return "Allocation Input Form 2021.xlsx"
@@ -67,7 +71,7 @@ class YearConfigBase(ABC):
 
     def get_banner_path(self) -> Path:
         """Path to banner image, or None if not used."""
-        if self.year == 2021:
+        if self.year in (2021, 2023):
             return Path("assets/2021 PUMF.png")
         return Path("assets/2019 PUMF.png")
 
