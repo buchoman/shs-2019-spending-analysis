@@ -71,7 +71,7 @@ class YearConfigBase(ABC):
 
     def get_banner_path(self) -> Path:
         """Path to banner image, or None if not used."""
-        return Path("assets/SHS.png")
+        return Path(__file__).resolve().parent.parent / "assets" / "SHS.png"
 
     def get_excel_title(self) -> str:
         """Title for Excel export cell A1."""
